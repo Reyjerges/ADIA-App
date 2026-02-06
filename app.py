@@ -52,7 +52,7 @@ app = gr.ChatInterface(
     fn=cerebro_adia,
     title=f"🧠 {IA_NAME} - NÚCLEO",
     description=f"Entrenando a la IA de {OPERADOR}...",
-    theme="soft"
+    
 )
 
 # --- LANZAMIENTO (Configurado para Render/Nube) ---
