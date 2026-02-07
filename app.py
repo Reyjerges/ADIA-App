@@ -2,26 +2,23 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Intentar conectar con Groq de forma segura
-try:
-    api_key = os.environ.get("GROQ_API_KEY")
-    client = Groq(api_key=api_key)
-except Exception:
-    client = None
+# Cliente de Groq
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def chat_adia(mensaje, historial):
-    if not api_key:
-        return "Jorge, no detecto la GROQ_API_KEY en las variables de Render. Configúrala para que pueda despertar."
-
+    # NUEVA IDENTIDAD TÉCNICA
     instrucciones = (
-        "Eres ADIA, nivel 9. Nombre significa 'Vida'. "
-        "Tienes MEMORIA TOTAL. Revisa el historial para responder. "
-        "Si pides imagen usa: ![imagen](https://pollinations.ai/p/PROMPT?width=1080&height=1080&nologo=true)"
+        "Eres ADIA (Advanced Digital Intelligence Assistant). "
+        "Eres la IA personal de Jorge, diseñada para soporte técnico y creatividad. "
+        "Tienes MEMORIA de toda esta conversación. Revisa el historial para ser coherente. "
+        "\n\nMODULO DE IMAGEN: Si Jorge pide un dibujo, genera un enlace con este formato: "
+        "![imagen](https://pollinations.ai/p/PROMPT?width=1080&height=1080&nologo=true) "
+        "Traduce el pedido a inglés y usa guiones medios en PROMPT."
     )
     
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # Memoria compatible con Gradio 4 y 5
+    # Procesar memoria (Historial)
     for h in historial:
         user_msg = h[0] if isinstance(h, (list, tuple)) else h.get("content")
         bot_msg = h[1] if isinstance(h, (list, tuple)) else h.get("content")
@@ -39,11 +36,10 @@ def chat_adia(mensaje, historial):
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error en la conexión: {str(e)}"
+        return f"Error: {str(e)}"
 
-# Interfaz simplificada
-demo = gr.ChatInterface(fn=chat_adia, title="ADIA v2.3")
+# Interfaz
+demo = gr.ChatInterface(fn=chat_adia, title="ADIA: Advanced Digital Intelligence Assistant")
 
 if __name__ == "__main__":
-    # Render puerto 10000
     demo.launch(server_name="0.0.0.0", server_port=10000)
