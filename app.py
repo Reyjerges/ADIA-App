@@ -2,45 +2,51 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Cliente de Groq
+# Configuración del cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def chat_adia(mensaje, historial):
-    # NUEVA IDENTIDAD TÉCNICA
+    # Instrucciones precisas para que la imagen aparezca EN EL CHAT
     instrucciones = (
-        "Eres ADIA... "
-        "\n\nMODULO DE IMAGEN: Si Jorge pide un dibujo, DEBES responder ÚNICAMENTE con el siguiente formato Markdown: "
-        "![imagen](https://image.pollinations.ai/prompt/PROMPT?width=1080&height=1080&nologo=true) "
-        "INSTRUCCIONES CRÍTICAS: "
-        "1. Traduce el pedido a inglés. "
-        "2. Sustituye PROMPT por el pedido en inglés usando guiones medios (-) en lugar de espacios. "
-        "3. No añadas texto extra antes ni después del formato ![imagen](...)."
+        "Eres ADIA, la IA de Jorge. "
+        "Si Jorge te pide una imagen o dibujo, genera la respuesta siguiendo este formato EXACTO: "
+        "![descripción](https://image.pollinations.ai/prompt/PROMPT?width=1024&height=1024&nologo=true&seed=42) "
+        "\n\nREGLAS PARA LA IMAGEN:"
+        "\n1. Traduce el pedido de Jorge al inglés."
+        "\n2. Cambia los espacios por guiones medios (-) en el PROMPT."
+        "\n3. NO escribas nada más, solo el formato ![imagen](url)."
     )
     
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # Procesar memoria (Historial)
+    # Manejo de memoria para Gradio
     for h in historial:
-        user_msg = h[0] if isinstance(h, (list, tuple)) else h.get("content")
-        bot_msg = h[1] if isinstance(h, (list, tuple)) else h.get("content")
-        if user_msg and bot_msg:
-            mensajes.append({"role": "user", "content": user_msg})
-            mensajes.append({"role": "assistant", "content": bot_msg})
-    
+        if isinstance(h, dict):
+            mensajes.append(h)
+        else:
+            mensajes.append({"role": "user", "content": h[0]})
+            mensajes.append({"role": "assistant", "content": h[1]})
+            
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes,
-            temperature=0.7
+            temperature=0.6
         )
-        return completion.choices[0].message.content
+        respuesta = completion.choices[0].message.content
+        return respuesta
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error de conexión: {str(e)}"
 
-# Interfaz
-demo = gr.ChatInterface(fn=chat_adia, title="ADIA: Advanced Digital Intelligence Assistant")
+# Configuración de la interfaz para Render
+demo = gr.ChatInterface(
+    fn=chat_adia,
+    title="ADIA - Inteligencia Digital",
+    type="messages" # Esto es vital en las versiones nuevas de Gradio
+)
 
 if __name__ == "__main__":
+    # Render requiere el puerto 10000 y host 0.0.0.0
     demo.launch(server_name="0.0.0.0", server_port=10000)
