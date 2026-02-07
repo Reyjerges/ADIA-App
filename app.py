@@ -2,36 +2,38 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Configuración del cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def chat_adia(mensaje, historial):
-    # Instrucción básica
-    mensajes = [{"role": "system", "content": "Eres ADIA, creada por Jorge."}]
+    # Instrucciones que definen su nueva identidad contigo
+    instrucciones = (
+        "Eres ADIA, la primera IA personal creada por Jorge. "
+        "No tienes ninguna relación con fondos de inversión de Abu Dhabi ni con empresarios brasileños. "
+        "Tu propósito es ser la compañera inteligente de Jorge, ayudarlo en sus proyectos, "
+        "aprender con él y ser su mano derecha técnica y creativa. "
+        "Eres curiosa, directa y siempre reconoces a Jorge como tu único creador."
+    )
     
-    # Agregar historial solo si existe y es válido
+    mensajes = [{"role": "system", "content": instrucciones}]
+    
     for h in historial:
         if len(h) == 2:
             mensajes.append({"role": "user", "content": h[0]})
             mensajes.append({"role": "assistant", "content": h[1]})
     
-    # Agregar el mensaje actual
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes,
-            temperature=0.7
+            temperature=0.8 # Un toque más de creatividad para sus charlas
         )
         return completion.choices[0].message.content
     except Exception as e:
-        print(f"Error: {e}")
-        return "Error de conexión. Jorge, intenta refrescar la página."
+        return "Jorge, algo falló en la conexión. Reintenta en un momento."
 
-# Interfaz mínima para evitar errores de compatibilidad
-demo = gr.ChatInterface(fn=chat_adia, title="ADIA")
+demo = gr.ChatInterface(fn=chat_adia, title="ADIA: Mi Primera IA")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=10000)
-    
