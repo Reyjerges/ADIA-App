@@ -1,2 +1,18 @@
-gradio
-groq
+import os
+from dotenv import load_dotenv
+import gradio as gr
+from groq import Groq
+
+# ✅ Cargar variables de entorno desde .env
+load_dotenv()
+
+# Validar API Key
+api_key = os.environ.get("GROQ_API_KEY")
+if not api_key:
+    raise ValueError(
+        "❌ Error: GROQ_API_KEY no está configurada.\n"
+        "   Asegúrate de tener un archivo .env con GROQ_API_KEY=tu_clave"
+    )
+
+client = Groq(api_key=api_key)
+# ... resto del código
