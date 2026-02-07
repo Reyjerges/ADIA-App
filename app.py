@@ -2,45 +2,30 @@ import os
 import gradio as gr
 from groq import Groq
 
+# Configuración del cliente con manejo de error si no hay API KEY
 api_key = os.environ.get("GROQ_API_KEY")
-if not api_key:
-    raise ValueError("GROQ_API_KEY no está configurada")
-
 client = Groq(api_key=api_key)
 
-def chat_adia(mensaje, audio_input, historial):
-    if historial is None:
-        historial = []
-    
-    if audio_input is not None:
-        try:
-            with open(audio_input, "rb") as audio_file:
-                transcript = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file,
-                )
-                mensaje = transcript.text
-        except Exception as e:
-            return f"Error al procesar audio: {str(e)}", None
-    
+def chat_adia(mensaje, historial):
     instrucciones = (
-        "Eres ADIA (Advanced Digital Intelligence Architecture). Tu nombre significa 'Vida'. "
-        "Eres la IA personal de Jorge. Tienes MEMORIA TOTAL. "
-        "Si Jorge pregunta por algo dicho anteriormente, revisa el historial. "
-        "\n\nMODULO DE IMAGEN: Si pide un dibujo, responde EXCLUSIVAMENTE con: "
-        "![imagen](https://pollinations.ai/p/PROMPT?width=1080&height=1080&nologo=true) "
-        "Traduce PROMPT al inglés y usa guiones medios."
+        "Eres ADIA, una IA nivel 9. Tu nombre significa 'Vida'. "
+        "Tienes MEMORIA TOTAL de esta charla. Si Jorge pregunta algo pasado, revísalo. "
+        "\n\nMODULO DE IMAGEN: Si pide un dibujo, usa: "
+        "![imagen](https://pollinations.ai/p/PROMPT?width=1080&height=1080&nologo=true)"
     )
     
     mensajes = [{"role": "system", "content": instrucciones}]
     
+    # Este bucle es compatible con versiones antiguas y nuevas de Gradio
     for h in historial:
-        if isinstance(h, dict):
-            mensajes.append(h)
-        else:
+        # Si el historial viene como lista de listas [user, bot]
+        if isinstance(h, (list, tuple)):
             mensajes.append({"role": "user", "content": h[0]})
             mensajes.append({"role": "assistant", "content": h[1]})
-            
+        # Si viene como diccionario (Gradio 5)
+        elif isinstance(h, dict):
+            mensajes.append(h)
+    
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
@@ -49,43 +34,13 @@ def chat_adia(mensaje, audio_input, historial):
             messages=mensajes,
             temperature=0.7
         )
-        respuesta = completion.choices[0].message.content
-        return respuesta, respuesta
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"Error: {str(e)}", None
+        return f"ADIA: Error de conexión. Verifica la API KEY. Detalle: {str(e)}"
 
-with gr.Blocks() as demo:
-    gr.Markdown("# ADIA v2.1 - Con Voz")
-    
-    with gr.Row():
-        with gr.Column():
-            audio_input = gr.Audio(label="Grabar mensaje", type="filepath")
-            text_input = gr.Textbox(label="O escribe aqui", placeholder="Escribe tu mensaje...")
-            submit_btn = gr.Button("Enviar", variant="primary")
-        
-        with gr.Column():
-            text_output = gr.Textbox(label="Respuesta", interactive=False)
-            audio_output = gr.Audio(label="Respuesta en voz")
-    
-    chat_history = gr.State(value=[])
-    
-    def process_input(audio, text, history):
-        user_input = text if text else ""
-        response, audio_resp = chat_adia(user_input, audio, history)
-        
-        if history is None:
-            history = []
-        history.append({"role": "user", "content": user_input or "[Audio]"})
-        history.append({"role": "assistant", "content": response})
-        
-        return response, audio_resp, history
-    
-    submit_btn.click(
-        process_input,
-        inputs=[audio_input, text_input, chat_history],
-        outputs=[text_output, audio_output, chat_history]
-    )
+# Interfaz estándar sin decoraciones extra para evitar fallos de Deploy
+demo = gr.ChatInterface(fn=chat_adia, title="ADIA v2.2")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    # Render requiere obligatoriamente el puerto 10000
+    demo.launch(server_name="0.0.0.0", server_port=10000)
