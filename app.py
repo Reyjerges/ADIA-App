@@ -1,12 +1,7 @@
 import os
-from dotenv import load_dotenv
 import gradio as gr
 from groq import Groq
 
-# Cargar variables de entorno
-load_dotenv()
-
-# Validar API Key
 api_key = os.environ.get("GROQ_API_KEY")
 if not api_key:
     raise ValueError("GROQ_API_KEY no está configurada")
@@ -14,9 +9,6 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 def chat_adia(mensaje, historial):
-    """Función de chat con ADIA."""
-    
-    # Validar historial
     if historial is None:
         historial = []
     
@@ -31,7 +23,6 @@ def chat_adia(mensaje, historial):
     
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # Procesar historial
     for h in historial:
         if isinstance(h, dict):
             mensajes.append(h)
@@ -49,9 +40,8 @@ def chat_adia(mensaje, historial):
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error en circuitos: {str(e)}"
+        return f"Error: {str(e)}"
 
-# ✅ SIN el parámetro type="messages"
 demo = gr.ChatInterface(
     fn=chat_adia,
     title="ADIA v2.1"
@@ -59,4 +49,3 @@ demo = gr.ChatInterface(
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=10000)
-           
