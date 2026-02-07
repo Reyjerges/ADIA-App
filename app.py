@@ -46,8 +46,7 @@ demo = gr.ChatInterface(
     fn=chat_adia, 
     title="ADIA v2.1",
     description="Sistema Neural Activo. Desarrollado por Jorge.",
-    examples=["¿Cómo va el diseño del robot?", "Escribe un código para un sensor ultrasónico", "Cuéntame un chiste técnico"],
-    theme="soft"
+    examples=["¿Cómo va el diseño del robot?", "Escribe un código para un sensor ultrasónico", "Cuéntame un chiste técnico"]
 )
 
 if __name__ == "__main__":
