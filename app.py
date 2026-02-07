@@ -1,12 +1,25 @@
 import os
+from dotenv import load_dotenv
 import gradio as gr
 from groq import Groq
 
-# Inicializar cliente
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# Cargar variables de entorno
+load_dotenv()
+
+# Validar API Key
+api_key = os.environ.get("GROQ_API_KEY")
+if not api_key:
+    raise ValueError("GROQ_API_KEY no está configurada")
+
+client = Groq(api_key=api_key)
 
 def chat_adia(mensaje, historial):
-    # Instrucciones de Nivel 9
+    """Función de chat con ADIA."""
+    
+    # Validar historial
+    if historial is None:
+        historial = []
+    
     instrucciones = (
         "Eres ADIA (Advanced Digital Intelligence Architecture). Tu nombre significa 'Vida'. "
         "Eres la IA personal de Jorge. Tienes MEMORIA TOTAL. "
@@ -18,8 +31,7 @@ def chat_adia(mensaje, historial):
     
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # Procesar historial (Gradio 5+ usa diccionarios {'role':..., 'content':...})
-    # Si usas una versión anterior, esto se adapta automáticamente:
+    # Procesar historial
     for h in historial:
         if isinstance(h, dict):
             mensajes.append(h)
@@ -39,13 +51,12 @@ def chat_adia(mensaje, historial):
     except Exception as e:
         return f"Error en circuitos: {str(e)}"
 
-# Interfaz optimizada para Render
+# ✅ SIN el parámetro type="messages"
 demo = gr.ChatInterface(
     fn=chat_adia,
-    title="ADIA v2.1",
-    type="messages" # Esto activa la memoria moderna de Gradio
+    title="ADIA v2.1"
 )
 
 if __name__ == "__main__":
-    # Render requiere host 0.0.0.0 y puerto 10000
     demo.launch(server_name="0.0.0.0", server_port=10000)
+           
