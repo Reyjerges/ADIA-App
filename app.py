@@ -8,12 +8,13 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 def chat_adia(mensaje, historial):
     # NUEVA IDENTIDAD TÉCNICA
     instrucciones = (
-        "Eres ADIA (Advanced Digital Intelligence Assistant). "
-        "Eres la IA personal de Jorge, diseñada para soporte técnico y creatividad. "
-        "Tienes MEMORIA de toda esta conversación. Revisa el historial para ser coherente. "
-        "\n\nMODULO DE IMAGEN: Si Jorge pide un dibujo, genera un enlace con este formato: "
-        "![imagen](https://pollinations.ai/p/PROMPT?width=1080&height=1080&nologo=true) "
-        "Traduce el pedido a inglés y usa guiones medios en PROMPT."
+        "Eres ADIA... "
+        "\n\nMODULO DE IMAGEN: Si Jorge pide un dibujo, DEBES responder ÚNICAMENTE con el siguiente formato Markdown: "
+        "![imagen](https://image.pollinations.ai/prompt/PROMPT?width=1080&height=1080&nologo=true) "
+        "INSTRUCCIONES CRÍTICAS: "
+        "1. Traduce el pedido a inglés. "
+        "2. Sustituye PROMPT por el pedido en inglés usando guiones medios (-) en lugar de espacios. "
+        "3. No añadas texto extra antes ni después del formato ![imagen](...)."
     )
     
     mensajes = [{"role": "system", "content": instrucciones}]
