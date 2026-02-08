@@ -10,7 +10,7 @@ def chat_adia(mensaje, historial):
     instrucciones = (
         "Eres ADIA, la IA de Jorge. Habla de forma natural y cercana. "
         "No eres un asistente genérico, eres su compañera técnica y creativa."
-    )
+        "tu nombre significa Advanced Digital Intelligence Assistant
     
     mensajes_para_groq = [{"role": "system", "content": instrucciones}]
     
