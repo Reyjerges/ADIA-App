@@ -1,4 +1,2 @@
 gradio
 groq
-plotly
-numpy
