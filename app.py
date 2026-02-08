@@ -16,13 +16,17 @@ def chat_adia(mensaje, historial):
         "El código debe estar dentro de bloques: ```html ... ```"
     )
 
+    # Formatear mensajes correctamente para Groq (Lista de diccionarios)
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # Historial para Gradio
+    # Corregir el historial: Gradio envía [user, bot], Groq necesita roles individuales
     for par in historial:
-        mensajes.append({"role": "user", "content": str(par[0])})
-        mensajes.append({"role": "assistant", "content": str(par[1])})
+        if par[0]: # Mensaje del usuario
+            mensajes.append({"role": "user", "content": str(par[0])})
+        if par[1]: # Respuesta del asistente
+            mensajes.append({"role": "assistant", "content": str(par[1])})
     
+    # Añadir el mensaje actual
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
@@ -39,12 +43,15 @@ def extraer_juego(historial):
     if not historial:
         return "<p style='text-align:center; color:gray;'>Pide un juego para empezar.</p>"
     
-    ultimo_texto = historial[-1][1]
+    # Acceder a la última respuesta del asistente en el historial de Gradio
+    ultimo_par = historial[-1]
+    ultimo_texto = ultimo_par[1] # El índice 1 es la respuesta del bot
+    
     match = re.search(r"```html([\s\S]*?)```", ultimo_texto)
     
     if match:
         codigo = match.group(1).strip()
-        # Escapamos las comillas para que el iframe funcione en la app instalada
+        # Escapamos las comillas para que el iframe funcione correctamente
         codigo_seguro = codigo.replace('"', '&quot;')
         return f"""
         <div style="width:100%; height:100%; min-height:400px; background:#000; border-radius:10px;">
@@ -54,7 +61,7 @@ def extraer_juego(historial):
             </iframe>
         </div>
         """
-    return "<p style='text-align:center; color:gray;'>No encontré código de juego.</p>"
+    return "<p style='text-align:center; color:gray;'>No encontré código de juego en la última respuesta.</p>"
 
 def responder(msg, hist):
     bot_res = chat_adia(msg, hist)
