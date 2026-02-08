@@ -6,42 +6,47 @@ from groq import Groq
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def chat_adia(mensaje, historial):
-    # Instrucciones para la identidad y las imágenes
+    # Identidad básica sin instrucciones de imagen
     instrucciones = (
-        "Eres ADIA, la IA de Jorge. Revisa el historial para ser coherente. "
-        "Si Jorge pide una imagen, usa EXACTAMENTE este formato: "
-        "![imagen](https://image.pollinations.ai/prompt/PROMPT?nologo=true) "
-        "Traduce el pedido a inglés y usa guiones en el PROMPT."
+        "Eres ADIA, la IA personal de Jorge. "
+        "Tu objetivo es ayudarle en todo lo que necesite. "
+        "Mantén una conversación fluida y recuerda lo que habéis hablado."
     )
     
-    mensajes = [{"role": "system", "content": instrucciones}]
+    # Lista de mensajes limpia
+    mensajes_limpios = [{"role": "system", "content": instrucciones}]
     
-    # 2. Procesamiento del historial (Compatible con versiones viejas y nuevas)
+    # 2. LIMPIEZA DE HISTORIAL (Para evitar el error de metadatos)
     for h in historial:
-        # Si el historial viene como lista [usuario, bot]
-        if isinstance(h, (list, tuple)):
-            mensajes.append({"role": "user", "content": h[0]})
-            mensajes.append({"role": "assistant", "content": h[1]})
-        # Si viene como diccionario (versiones más nuevas)
-        elif isinstance(h, dict):
-            mensajes.append(h)
+        if isinstance(h, dict):
+            # Extraemos solo texto, ignorando metadatos de Gradio
+            mensajes_limpios.append({
+                "role": str(h.get("role")), 
+                "content": str(h.get("content"))
+            })
+        elif isinstance(h, (list, tuple)):
+            # Soporte para formato de lista [usuario, bot]
+            mensajes_limpios.append({"role": "user", "content": str(h[0])})
+            mensajes_limpios.append({"role": "assistant", "content": str(h[1])})
     
-    mensajes.append({"role": "user", "content": mensaje})
+    # Mensaje actual
+    mensajes_limpios.append({"role": "user", "content": str(mensaje)})
 
     try:
+        # 3. Llamada a la API
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=mensajes,
+            messages=mensajes_limpios,
             temperature=0.7
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error técnico: {str(e)}"
 
-# 3. Interfaz corregida (SIN el argumento 'type')
+# 4. Interfaz de Gradio
 demo = gr.ChatInterface(
     fn=chat_adia, 
-    title="ADIA: Advanced Digital Intelligence Assistant"
+    title="ADIA: Chat Personal"
 )
 
 if __name__ == "__main__":
