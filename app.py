@@ -4,11 +4,10 @@ from groq import Groq
 import re
 
 # Configuración del Cliente Groq
-# Recuerda que la API KEY debe estar en las variables de entorno de Render
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def chat_adia(mensaje, historial):
-    # Instrucciones para que ADIA cree juegos compatibles con móviles y PC
+    # Instrucciones maestras
     instrucciones = (
         "Eres ADIA, una IA experta en programación creativa. "
         "Si te piden un juego, genera un código HTML único con CSS y JS. "
@@ -16,73 +15,88 @@ def chat_adia(mensaje, historial):
         "El código debe estar dentro de bloques: ```html ... ```"
     )
 
-    # Formatear mensajes correctamente para Groq (Lista de diccionarios)
-    mensajes = [{"role": "system", "content": instrucciones}]
+    # Iniciar lista de mensajes para Groq
+    mensajes_groq = [{"role": "system", "content": instrucciones}]
     
-    # Corregir el historial: Gradio envía [user, bot], Groq necesita roles individuales
-    for par in historial:
-        if par[0]: # Mensaje del usuario
-            mensajes.append({"role": "user", "content": str(par[0])})
-        if par[1]: # Respuesta del asistente
-            mensajes.append({"role": "assistant", "content": str(par[1])})
+    # PROCESAMIENTO DEL HISTORIAL (Corrección para Gradio 5)
+    for entrada in historial:
+        # Si el historial viene como diccionarios (Gradio 5+)
+        if isinstance(entrada, dict):
+            rol = entrada.get("role")
+            contenido = entrada.get("content")
+            if rol and contenido:
+                mensajes_groq.append({"role": rol, "content": str(contenido)})
+        # Si viene como tuplas/listas [user, bot] (Gradio 4 y anteriores)
+        elif isinstance(entrada, (list, tuple)):
+            if len(entrada) >= 2:
+                if entrada[0]: 
+                    mensajes_groq.append({"role": "user", "content": str(entrada[0])})
+                if entrada[1]: 
+                    mensajes_groq.append({"role": "assistant", "content": str(entrada[1])})
     
-    # Añadir el mensaje actual
-    mensajes.append({"role": "user", "content": mensaje})
+    # Añadir el mensaje actual del usuario
+    mensajes_groq.append({"role": "user", "content": mensaje})
 
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=mensajes,
+            messages=mensajes_groq,
             temperature=0.7
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error en la conexión con Groq: {str(e)}"
 
 def extraer_juego(historial):
     if not historial:
         return "<p style='text-align:center; color:gray;'>Pide un juego para empezar.</p>"
     
-    # Acceder a la última respuesta del asistente en el historial de Gradio
-    ultimo_par = historial[-1]
-    ultimo_texto = ultimo_par[1] # El índice 1 es la respuesta del bot
+    # Obtener el último mensaje del asistente
+    ultima_entrada = historial[-1]
+    if isinstance(ultima_entrada, dict):
+        ultimo_texto = ultima_entrada.get("content", "")
+    else:
+        ultimo_texto = ultima_entrada[1]
     
     match = re.search(r"```html([\s\S]*?)```", ultimo_texto)
     
     if match:
         codigo = match.group(1).strip()
-        # Escapamos las comillas para que el iframe funcione correctamente
         codigo_seguro = codigo.replace('"', '&quot;')
         return f"""
-        <div style="width:100%; height:100%; min-height:400px; background:#000; border-radius:10px;">
+        <div style="width:100%; height:500px; background:#000; border-radius:10px; overflow:hidden;">
             <iframe srcdoc="{codigo_seguro}" 
-                    style="width:100%; height:500px; border:none;" 
+                    style="width:100%; height:100%; border:none;" 
                     sandbox="allow-scripts allow-same-origin">
             </iframe>
         </div>
         """
-    return "<p style='text-align:center; color:gray;'>No encontré código de juego en la última respuesta.</p>"
+    return "<p style='text-align:center; color:gray;'>No encontré código de juego en la respuesta.</p>"
 
 def responder(msg, hist):
+    if not msg: return "", hist
     bot_res = chat_adia(msg, hist)
-    hist.append((msg, bot_res))
+    # Gradio 5 prefiere diccionarios en el historial
+    hist.append({"role": "user", "content": msg})
+    hist.append({"role": "assistant", "content": bot_res})
     return "", hist
 
-# Interfaz optimizada para que parezca una App
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 ADIA App")
+# Interfaz optimizada estilo App
+with gr.Blocks(theme=gr.themes.Soft(), title="ADIA OS") as demo:
+    gr.Markdown("# 🤖 ADIA - Sistema Inteligente")
     
     with gr.Tabs():
         with gr.TabItem("Chat"):
-            chatbot = gr.Chatbot(height=450)
+            # Importante: type="messages" para compatibilidad con Gradio 5
+            chatbot = gr.Chatbot(height=450, type="messages")
             with gr.Row():
                 txt = gr.Textbox(placeholder="Escribe aquí...", show_label=False, scale=4)
                 btn = gr.Button("Enviar", variant="primary", scale=1)
         
-        with gr.TabItem("Juego"):
-            gr.Markdown("### 🎮 Consola")
-            visor = gr.HTML("Dale a 'Cargar' después de que ADIA genere el código.")
-            btn_jugar = gr.Button("🚀 Cargar Juego")
+        with gr.TabItem("Consola de Juego"):
+            gr.Markdown("### 🎮 Pantalla")
+            visor = gr.HTML("<p style='text-align:center; margin-top:50px;'>Genera un juego en el chat y luego pulsa Cargar.</p>")
+            btn_jugar = gr.Button("🚀 Cargar Juego Generado", variant="secondary")
 
     # Eventos
     txt.submit(responder, [txt, chatbot], [txt, chatbot])
