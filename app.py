@@ -1,55 +1,115 @@
 import os
+
 import gradio as gr
+
 from groq import Groq
-import plotly.graph_objects as go
-import numpy as np
+
+
+
+# 1. Configuración del Cliente
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# Esta función crea la figura 3D
-def generar_figura_3d(tipo):
-    if "esfera" in tipo.lower():
-        # Matemáticas para una esfera
-        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-        x = np.cos(u)*np.sin(v)
-        y = np.sin(u)*np.sin(v)
-        z = np.cos(v)
-        fig = go.Figure(data=[go.Surface(x=x, y=y, z=z, colorscale='Viridis')])
-    else:
-        # Una forma abstracta por defecto (tipo Jarvis)
-        z = np.random.standard_normal((10, 10))
-        fig = go.Figure(data=[go.Surface(z=z, colorscale='Electric')])
-    
-    fig.update_layout(title='ADIA Visual System', autosize=True,
-                  margin=dict(l=0, r=0, b=0, t=0), template="plotly_dark")
-    return fig
+
 
 def chat_adia(mensaje, historial):
-    # Instrucciones para que ADIA sepa que puede mostrar 3D
-    instrucciones = "Eres ADIA. Si Jorge pide ver algo en 3D, dile que lo estás proyectando."
+
+    # Instrucciones de identidad (Ancla)
+
+    instrucciones = (
+
+        "Eres ADIA, la IA de Jorge. Habla de forma natural y cercana. "
+
+        "No eres un asistente genérico, eres su compañera técnica y creativa."
+
+        "tu nombre significa Advanced Digital Intelligence Assistant"
+
+    )
+
     
-    # (Aquí iría tu lógica de historial que ya tenemos)
+
+    mensajes_para_groq = [{"role": "system", "content": instrucciones}]
+
     
-    # Por ahora, vamos a devolver un texto y la figura
-    return "Proyectando interfaz 3D...", generar_figura_3d(mensaje)
 
-# Interfaz con espacio para el Chat y el Holograma
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# ADIA - Interface JARVIS")
-    with gr.Row():
-        with gr.Column(scale=1):
-            chatbot = gr.Chatbot(label="ADIA Chat")
-            msg = gr.Textbox(label="Orden")
-        with gr.Column(scale=1):
-            plot = gr.Plot(label="Proyección Holográfica")
+    # 2. LIMPIEZA TOTAL DEL HISTORIAL (Evita que ADIA vea metadatos o códigos)
 
-    def responder(mensaje, chat_history):
-        bot_msg, fig = chat_adia(mensaje, chat_history)
-        chat_history.append((mensaje, bot_msg))
-        return chat_history, fig
+    for h in historial:
 
-    msg.submit(responder, [msg, chatbot], [chatbot, plot])
+        # Si Gradio envía diccionarios (Gradio 5)
+
+        if isinstance(h, dict):
+
+            rol = h.get("role", "user")
+
+            contenido = h.get("content", "")
+
+            # Si el contenido es esa lista rara de Gradio, extraemos solo el texto
+
+            if isinstance(contenido, list) and len(contenido) > 0:
+
+                contenido = contenido[0].get("text", "")
+
+            
+
+            if rol and contenido:
+
+                mensajes_para_groq.append({"role": rol, "content": str(contenido)})
+
+        
+
+        # Si Gradio envía listas (Gradio antiguo)
+
+        elif isinstance(h, (list, tuple)) and len(h) == 2:
+
+            if h[0]: mensajes_para_groq.append({"role": "user", "content": str(h[0])})
+
+            if h[1]: mensajes_para_groq.append({"role": "assistant", "content": str(h[1])})
+
+
+
+    # Mensaje actual
+
+    mensajes_para_groq.append({"role": "user", "content": str(mensaje)})
+
+
+
+    try:
+
+        completion = client.chat.completions.create(
+
+            model="llama-3.1-8b-instant",
+
+            messages=mensajes_para_groq,
+
+            temperature=0.8
+
+        )
+
+        return completion.choices[0].message.content
+
+    except Exception as e:
+
+        return f"Error: {str(e)}"
+
+
+
+# 3. Interfaz sin parámetros conflictivos
+
+demo = gr.ChatInterface(
+
+    fn=chat_adia, 
+
+    title="ADIA"
+
+)
+
+
 
 if __name__ == "__main__":
+
+    # Configuración obligatoria para Render
+
     demo.launch(server_name="0.0.0.0", server_port=10000)
+
   
