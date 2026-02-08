@@ -1,48 +1,68 @@
 import os
 import gradio as gr
 from groq import Groq
-from googlesearch import search
 
 # 1. Configuración del Cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def buscar_en_google(consulta):
-    """Función para que ADIA busque links en internet"""
+    # Importamos dentro de la función para que no rompa el inicio del servidor
     try:
+        from googlesearch import search
         resultados = []
-        # Busca los 3 mejores resultados
+        # Buscamos solo 3 links rápidos
         for url in search(consulta, num_results=3, lang="es"):
             resultados.append(url)
         
         if resultados:
             links = "\n".join(resultados)
-            return f"\n\nJorge, he encontrado estos enlaces que te pueden servir:\n{links}"
+            return f"\n\n[Fuentes encontradas]:\n{links}"
         else:
-            return "\n\nNo encontré enlaces recientes sobre eso."
+            return ""
     except Exception:
-        return "\n\n(Nota: Tuve un problema al conectar con Google, pero aquí tienes mi respuesta basada en mi memoria...)"
+        return ""
 
 def chat_adia(mensaje, historial):
-    # Instrucciones de identidad (Ancla)
     instrucciones = (
         "Eres ADIA, la IA de Jorge. Nombre: Advanced Digital Intelligence Assistant. "
-        "Eres su compañera técnica y creativa. Habla de forma natural. "
-        "Si Jorge te pide que 'busques' algo, indícale que estás consultando fuentes externas."
+        "Eres su compañera técnica y creativa. Responde de forma clara y directa."
     )
     
-    # Si el usuario pide buscar, activamos la función de búsqueda
-    respuesta_extra = ""
-    if "busca" in mensaje.lower() or "quien es" in mensaje.lower() or "que es" in mensaje.lower():
-        respuesta_extra = buscar_en_google(mensaje)
+    # Detectamos si quiere buscar algo
+    info_extra = ""
+    palabras_busqueda = ["busca", "quien es", "que es", "noticias", "precio"]
+    if any(palabra in mensaje.lower() for palabra in palabras_busqueda):
+        info_extra = buscar_en_google(mensaje)
 
     mensajes_para_groq = [{"role": "system", "content": instrucciones}]
     
-    # 2. LIMPIEZA DEL HISTORIAL
+    # Limpieza de historial para Gradio 5
     for h in historial:
         if isinstance(h, dict):
             rol = h.get("role", "user")
             contenido = h.get("content", "")
-            if isinstance(contenido, list) and len(contenido) > 0:
+            if isinstance(contenido, list):
                 contenido = contenido[0].get("text", "")
-            if rol and contenido:
-                mensajes_para_groq.append({"role": rol, "content": str(contenido)})
+            mensajes_para_groq.append({"role": rol, "content": str(contenido)})
+        elif isinstance(h, (list, tuple)):
+            mensajes_para_groq.append({"role": "user", "content": str(h[0])})
+            mensajes_para_groq.append({"role": "assistant", "content": str(h[1])})
+
+    mensajes_para_groq.append({"role": "user", "content": str(mensaje)})
+
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=mensajes_para_groq,
+            temperature=0.7
+        )
+        respuesta_final = completion.choices[0].message.content
+        return respuesta_final + info_extra
+    except Exception as e:
+        return f"Error en el cerebro de ADIA: {str(e)}"
+
+# Interfaz
+demo = gr.ChatInterface(fn=chat_adia, title="ADIA")
+
+if __name__ == "__main__":
+    demo.launch(server_name="0.0.0.0", server_port=10000)
