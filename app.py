@@ -2,51 +2,47 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Configuración del cliente
+# 1. Configuración del Cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def chat_adia(mensaje, historial):
-    # Instrucciones precisas para que la imagen aparezca EN EL CHAT
+    # Instrucciones para la identidad y las imágenes
     instrucciones = (
-        "Eres ADIA, la IA de Jorge. "
-        "Si Jorge te pide una imagen o dibujo, genera la respuesta siguiendo este formato EXACTO: "
-        "![descripción](https://image.pollinations.ai/prompt/PROMPT?width=1024&height=1024&nologo=true&seed=42) "
-        "\n\nREGLAS PARA LA IMAGEN:"
-        "\n1. Traduce el pedido de Jorge al inglés."
-        "\n2. Cambia los espacios por guiones medios (-) en el PROMPT."
-        "\n3. NO escribas nada más, solo el formato ![imagen](url)."
+        "Eres ADIA, la IA de Jorge. Revisa el historial para ser coherente. "
+        "Si Jorge pide una imagen, usa EXACTAMENTE este formato: "
+        "![imagen](https://image.pollinations.ai/prompt/PROMPT?nologo=true) "
+        "Traduce el pedido a inglés y usa guiones en el PROMPT."
     )
     
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # Manejo de memoria para Gradio
+    # 2. Procesamiento del historial (Compatible con versiones viejas y nuevas)
     for h in historial:
-        if isinstance(h, dict):
-            mensajes.append(h)
-        else:
+        # Si el historial viene como lista [usuario, bot]
+        if isinstance(h, (list, tuple)):
             mensajes.append({"role": "user", "content": h[0]})
             mensajes.append({"role": "assistant", "content": h[1]})
-            
+        # Si viene como diccionario (versiones más nuevas)
+        elif isinstance(h, dict):
+            mensajes.append(h)
+    
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes,
-            temperature=0.6
+            temperature=0.7
         )
-        respuesta = completion.choices[0].message.content
-        return respuesta
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"Error de conexión: {str(e)}"
+        return f"Error: {str(e)}"
 
-# Configuración de la interfaz para Render
+# 3. Interfaz corregida (SIN el argumento 'type')
 demo = gr.ChatInterface(
-    fn=chat_adia,
-    title="ADIA - Inteligencia Digital",
-    type="messages" # Esto es vital en las versiones nuevas de Gradio
+    fn=chat_adia, 
+    title="ADIA: Advanced Digital Intelligence Assistant"
 )
 
 if __name__ == "__main__":
-    # Render requiere el puerto 10000 y host 0.0.0.0
     demo.launch(server_name="0.0.0.0", server_port=10000)
