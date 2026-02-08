@@ -12,7 +12,6 @@ except ImportError as e:
     sys.exit(1)
 
 # --- CONFIGURACIÓN DE PUERTO PARA RENDER ---
-# Render requiere que la app escuche en el puerto que ellos asignan
 port = int(os.environ.get("PORT", 10000))
 
 # --- CONFIGURACIÓN DE CLIENTES ---
@@ -32,7 +31,6 @@ def buscar_en_google(consulta):
     try:
         from googlesearch import search
         resultados = []
-        # Limitamos a 3 resultados para no saturar el contexto
         for url in search(consulta, num_results=3, lang="es"):
             resultados.append(url)
         if resultados:
@@ -52,21 +50,17 @@ def chat_adia(mensaje, historial):
         "Tus respuestas son siempre seguras para menores, educativas y amigables."
     )
 
-    # Activar búsqueda si se detectan palabras clave
     contexto_web = ""
     if any(p in mensaje.lower() for p in ["busca", "quien es", "internet", "noticias", "hoy"]):
         contexto_web = buscar_en_google(mensaje)
 
     mensajes_api = [{"role": "system", "content": instrucciones}]
     
-    # Adaptar historial para la API de Groq
+    # Adaptar historial para que funcione con listas de tuplas (formato estándar de Gradio)
     if historial:
-        for entrada in historial:
-            if isinstance(entrada, dict):
-                mensajes_api.append(entrada)
-            elif isinstance(entrada, (list, tuple)) and len(entrada) >= 2:
-                if entrada[0]: mensajes_api.append({"role": "user", "content": str(entrada[0])})
-                if entrada[1]: mensajes_api.append({"role": "assistant", "content": str(entrada[1])})
+        for usuario, asistente in historial:
+            if usuario: mensajes_api.append({"role": "user", "content": str(usuario)})
+            if asistente: mensajes_api.append({"role": "assistant", "content": str(asistente)})
 
     mensajes_api.append({"role": "user", "content": mensaje + contexto_web})
 
@@ -82,13 +76,16 @@ def chat_adia(mensaje, historial):
 
 def extraer_juego(historial):
     """Busca código HTML en el último mensaje y lo prepara para el visor."""
-    if not historial:
+    if not historial or len(historial) == 0:
         return "<p style='text-align:center; padding:20px; color:gray;'>No hay mensajes todavía.</p>"
     
-    ultima_entrada = historial[-1]
-    texto = ultima_entrada["content"] if isinstance(ultima_entrada, dict) else ultima_entrada[1]
+    # En el formato estándar de Gradio, historial[-1] es [usuario, asistente]
+    ultima_respuesta_asistente = historial[-1][1]
     
-    match = re.search(r"```html([\s\S]*?)```", texto)
+    if not ultima_respuesta_asistente:
+        return "<p style='text-align:center; padding:20px; color:gray;'>Esperando respuesta...</p>"
+
+    match = re.search(r"```html([\s\S]*?)```", ultima_respuesta_asistente)
     if match:
         codigo = match.group(1).strip()
         codigo_seguro = codigo.replace('"', '&quot;')
@@ -102,8 +99,7 @@ def extraer_juego(historial):
 def manejar_respuesta(txt, hist):
     if not txt.strip(): return "", hist
     res = chat_adia(txt, hist)
-    hist.append({"role": "user", "content": txt})
-    hist.append({"role": "assistant", "content": res})
+    hist.append((txt, res)) # Formato de tupla estándar [usuario, asistente]
     return "", hist
 
 # --- CONSTRUCCIÓN DE LA INTERFAZ ---
@@ -112,7 +108,8 @@ with gr.Blocks(theme=gr.themes.Soft(), title="ADIA OS") as demo:
     
     with gr.Tabs():
         with gr.TabItem("💬 Chat con ADIA"):
-            chat = gr.Chatbot(height=500, type="messages")
+            # Eliminado type="messages" para máxima compatibilidad
+            chat = gr.Chatbot(height=500)
             with gr.Row():
                 input_msg = gr.Textbox(
                     placeholder="Escribe aquí tu mensaje o pide un juego...", 
@@ -132,7 +129,6 @@ with gr.Blocks(theme=gr.themes.Soft(), title="ADIA OS") as demo:
     run_btn.click(extraer_juego, chat, pantalla)
 
 if __name__ == "__main__":
-    # Configuraciones vitales para que Render no cierre la conexión
     print(f"Iniciando ADIA en el puerto {port}...")
     demo.launch(
         server_name="0.0.0.0", 
