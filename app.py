@@ -32,14 +32,14 @@ def chat_adia(mensaje, historial):
         "Todo el JS debe ir en etiquetas <script>."
     )
 
-    # Convertir el historial al formato que entiende la API de Groq
+    # Formato de mensajes para la API de Groq
     mensajes_api = [{"role": "system", "content": instrucciones}]
     
-    # En Gradio 5, el historial viene como una lista de objetos de mensaje
-    for msg in historial:
-        # Detectar si es mensaje de usuario o asistente según el formato de Gradio
-        role = "user" if msg["role"] == "user" else "assistant"
-        mensajes_api.append({"role": role, "content": msg["content"]})
+    # Procesar historial clásico (lista de listas/tuplas)
+    if historial:
+        for usuario, asistente in historial:
+            if usuario: mensajes_api.append({"role": "user", "content": str(usuario)})
+            if asistente: mensajes_api.append({"role": "assistant", "content": str(asistente)})
 
     mensajes_api.append({"role": "user", "content": mensaje})
 
@@ -57,55 +57,54 @@ def extraer_juego(historial):
     if not historial or len(historial) == 0:
         return "<p style='text-align:center; color:gray;'>No hay mensajes todavía.</p>"
     
-    # Obtener el contenido del último mensaje del asistente
-    ultima_respuesta = ""
-    for msg in reversed(historial):
-        if msg["role"] == "assistant":
-            ultima_respuesta = msg["content"]
-            break
+    # En el formato clásico, el historial es [(user, bot), (user, bot)]
+    # Sacamos el bot de la última entrada
+    ultima_respuesta = historial[-1][1]
     
+    if not ultima_respuesta:
+        return "<p style='text-align:center; color:gray;'>Esperando respuesta...</p>"
+
     match = re.search(r"```html([\s\S]*?)```", ultima_respuesta)
     
     if match:
         codigo = match.group(1).strip()
-        # Escapamos comillas simples para que no rompan el srcdoc
+        # Limpieza para evitar conflictos de comillas en el iframe
         codigo_limpio = codigo.replace("'", "&#39;")
         return f"""
         <div style="width:100%; height:500px; border:3px solid #00f2ff; border-radius:15px; overflow:hidden; background:#000;">
             <iframe srcdoc='{codigo_limpio}' style="width:100%; height:100%; border:none;" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
         """
-    return "<p style='text-align:center; color:gray;'>No encontré código HTML en la última respuesta.</p>"
+    return "<p style='text-align:center; color:gray;'>Pide un juego y cuando ADIA responda, pulsa este botón.</p>"
 
-# Función para manejar la interacción
 def responder(mensaje, historial):
-    # El historial en Gradio 5 se actualiza automáticamente si usamos type="messages"
+    if not mensaje.strip():
+        return "", historial
     bot_message = chat_adia(mensaje, historial)
-    historial.append({"role": "user", "content": mensaje})
-    historial.append({"role": "assistant", "content": bot_message})
+    historial.append((mensaje, bot_message))
     return "", historial
 
+# --- INTERFAZ ---
 with gr.Blocks(theme=gr.themes.Soft(), title="ADIA OS") as demo:
     gr.Markdown("# 🤖 ADIA SYSTEM")
     
-    # Importante: type="messages" es lo que espera Gradio 5
-    estado_historial = gr.State([])
-    
     with gr.Tabs():
         with gr.TabItem("💬 Chat"):
-            chatbot = gr.Chatbot(type="messages", height=450)
+            # Quitamos el type="messages" para máxima compatibilidad
+            chatbot = gr.Chatbot(height=450)
             with gr.Row():
                 input_msg = gr.Textbox(placeholder="Pide un juego de Canvas...", scale=4, show_label=False)
                 send_btn = gr.Button("Enviar", variant="primary")
         
         with gr.TabItem("🎮 Consola"):
-            pantalla = gr.HTML("<div style='text-align:center; padding:50px;'>Pulsa el botón para cargar el juego.</div>")
-            run_btn = gr.Button("🚀 EJECUTAR JUEGO")
+            pantalla = gr.HTML("<div style='text-align:center; padding:50px; color:gray;'>Los juegos de Canvas se cargarán aquí.</div>")
+            run_btn = gr.Button("🚀 EJECUTAR JUEGO", variant="secondary")
 
-    # Eventos
+    # Eventos con el formato de historial de lista de tuplas
     input_msg.submit(responder, [input_msg, chatbot], [input_msg, chatbot])
     send_btn.click(responder, [input_msg, chatbot], [input_msg, chatbot])
     run_btn.click(extraer_juego, chatbot, pantalla)
 
 if __name__ == "__main__":
+    # Render necesita server_name="0.0.0.0"
     demo.launch(server_name="0.0.0.0", server_port=port)
