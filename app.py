@@ -1,78 +1,61 @@
 import gradio as gr
 from groq import Groq
 import os
-import re
 
-# Cliente Llama 3
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# 1. Configuración del Cliente
+# En Render, es mejor usar variables de entorno para la seguridad
+api_key = os.environ.get("GROQ_API_KEY", "TU_API_KEY_AQUI")
+client = Groq(api_key=api_key)
 
-def extract_html(history):
-    if not history: return ""
-    # Sacamos el contenido del último mensaje del asistente
-    last_msg = history[-1][1] 
-    match = re.search(r"```html\n(.*?)\n```", last_msg, re.DOTALL)
-    if match: return match.group(1)
-    return f"<div style='padding:20px;'>{last_msg}</div>"
+SYSTEM_PROMPT = """
+Eres ADIA, una IA compañera. Tu misión es ayudar al usuario. 
+Si te piden juegos, genera un único bloque de código HTML/JS/CSS.
+"""
 
-def responder(message, history):
-    # CORRECCIÓN AQUÍ: Convertimos el historial a diccionarios compatibles con Llama 3
-    messages = [{"role": "system", "content": "Eres ADIA. Usa bloques ```html para juegos."}]
-    
-    for user_msg, assistant_msg in history:
-        if user_msg: messages.append({"role": "user", "content": user_msg})
-        if assistant_msg: messages.append({"role": "assistant", "content": assistant_msg})
+def chat_with_adia(message, history):
+    # Convertimos historial de forma simple
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for h in history:
+        messages.append({"role": "user", "content": h[0]})
+        messages.append({"role": "assistant", "content": h[1]})
     
     messages.append({"role": "user", "content": message})
 
-    # Llamada a la API
     completion = client.chat.completions.create(
         model="llama3-8b-8192",
         messages=messages,
-        stream=True
+        temperature=0.7
     )
+    
+    return completion.choices[0].message.content
 
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices.delta.content:
-            full_response += chunk.choices.delta.content
-            yield full_response
-
-with gr.Blocks(fill_height=True) as demo:
-    gr.Markdown("# 🤖 ADIA System")
+# 2. Interfaz Limpia (Sin Type Hints)
+with gr.Blocks() as demo:
+    gr.Markdown("# 🤖 ADIA Canvas")
     
     with gr.Row():
-        mode = gr.Radio(["Chat Normal", "Modo Canvas"], value="Chat Normal", label="Entorno")
-
-    with gr.Row():
-        # Chat
-        with gr.Column(scale=1):
-            chatbot = gr.Chatbot(height=500)
-            txt = gr.Textbox(placeholder="Escribe y presiona Enter...")
+        with gr.Column():
+            chatbot = gr.Chatbot(label="Chat con ADIA")
+            msg = gr.Textbox(label="Instrucciones para el juego")
             btn = gr.Button("Enviar")
 
-        # Canvas
-        with gr.Column(scale=1, visible=False) as canvas_col:
-            gr.Markdown("### 🎨 Canvas")
-            canvas_view = gr.HTML("Esperando código...")
+        with gr.Column():
+            canvas = gr.HTML(" <center> Esperando creación... </center> ")
+            code_out = gr.Code(label="Código generado", language="html")
 
-    def chat_engine(msg, history):
-        # 1. Agregamos el mensaje del usuario al historial visual
-        history = history + [[msg, ""]]
-        yield "", history, gr.update()
+    def process_interaction(message, chat_history):
+        response = chat_with_adia(message, chat_history)
+        chat_history.append((message, response))
         
-        # 2. Generamos la respuesta
-        response_gen = responder(msg, history[:-1]) # Enviamos historial previo
-        for partial_res in response_gen:
-            history[-1][1] = partial_res
-            # 3. Actualizamos chat y canvas al mismo tiempo
-            yield "", history, extract_html(history)
+        # Extracción simple de código
+        html_content = ""
+        if "```html" in response:
+            html_content = response.split("```html")[1].split("```")[0]
+        
+        return "", chat_history, html_content, html_content
 
-    # Eventos
-    txt.submit(chat_engine, [txt, chatbot], [txt, chatbot, canvas_view])
-    btn.click(chat_engine, [txt, chatbot], [txt, chatbot, canvas_view])
-    
-    # Toggle Canvas
-    mode.change(lambda x: gr.update(visible=(x == "Modo Canvas")), mode, canvas_col)
+    btn.click(process_interaction, [msg, chatbot], [msg, chatbot, canvas, code_out])
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=10000)
+    demo.launch()
+    
