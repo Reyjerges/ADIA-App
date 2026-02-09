@@ -2,75 +2,70 @@ import gradio as gr
 from groq import Groq
 import os
 
-# 1. Configuración de API
-api_key = os.environ.get("GROQ_API_KEY", "TU_API_KEY_AQUI")
-client = Groq(api_key=api_key)
+# Conexión con el cerebro de ADIA
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-SYSTEM_PROMPT = """Eres ADIA, una IA compañera y servicial. 
-Tu misión es ser la mejor amiga y asistente del usuario. 
-Si generas un juego, usa ÚNICAMENTE un bloque de código ```html."""
-
-def chat_logic(message, history):
-    # Ajuste para el nuevo formato de historial de Gradio
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+def adia_logic(mensaje, historial):
+    sistema = "Eres ADIA v1.2, asistente de Jorge. Eres experta en robótica. Saluda a Jorge si es el inicio. Si pide mover el brazo, responde confirmando la trayectoria."
     
-    for entry in history:
-        # Gradio ahora puede enviar diccionarios o tuplas, esto lo hace compatible con ambos
-        if isinstance(entry, dict):
-            messages.append({"role": entry["role"], "content": entry["content"]})
-        else:
-            messages.append({"role": "user", "content": entry[0]})
-            messages.append({"role": "assistant", "content": entry[1]})
-            
-    messages.append({"role": "user", "content": message})
+    mensajes_ia = [{"role": "system", "content": sistema}]
+    for h in historial:
+        mensajes_ia.append({"role": "user", "content": h[0]})
+        mensajes_ia.append({"role": "assistant", "content": h[1]})
+    mensajes_ia.append({"role": "user", "content": mensaje})
 
-    try:
-        # Usamos el modelo más actual para evitar el error 400
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages
-        )
-        response = completion.choices[0].message.content
-    except Exception as e:
-        response = f"ADIA tiene un problema técnico: {str(e)}"
+    response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_ia)
+    return response.choices[0].message.content
+
+# --- HTML/CSS PARA EL BRAZO ROBÓTICO (SIMULACIÓN) ---
+brazo_3d_html = """
+<div style="width: 100%; height: 400px; background: #0a0a0a; border: 2px solid #00f2ff; border-radius: 10px; overflow: hidden; position: relative;">
+    <div style="position: absolute; top: 10px; left: 10px; color: #00f2ff; font-family: monospace; font-size: 12px;">ADIA_VISUAL_FEED: ACTIVE</div>
+    <svg viewBox="0 0 200 200" style="width: 100%; height: 100%;">
+        <rect x="80" y="160" width="40" height="20" fill="#333" />
+        <g id="robot-arm">
+            <rect x="95" y="100" width="10" height="60" fill="#00f2ff">
+                <animateTransform attributeName="transform" type="rotate" from="0 100 160" to="20 100 160" dur="2s" repeatCount="indefinite" />
+            </rect>
+            <circle cx="100" cy="100" r="5" fill="white" />
+        </g>
+    </svg>
+</div>
+"""
+
+# --- CONSTRUCCIÓN DE LA INTERFAZ ---
+with gr.Blocks(theme=gr.themes.Soft()) as interface:
+    gr.Markdown("## 🦾 ADIA v1.2 // Jorge's Lab")
     
-    # Extraer el código para el Canvas
-    html_content = ""
-    if "```html" in response:
-        html_content = response.split("```html")[1].split("```")[0]
-    
-    # Retornamos el mensaje vacío para el input, el historial actualizado y el contenido del canvas
-    return "", history + [[message, response]], html_content
+    # TELEMETRÍA SUPERIOR
+    with gr.Row():
+        gr.HTML("<div style='width:100%; height:20px; background:linear-gradient(90deg, #00f2ff 30%, #333 30%); border-radius:5px;'></div>")
 
-# 2. Interfaz con Selección de Modo
-with gr.Blocks(title="ADIA IA") as demo:
-    gr.Markdown("# 🤖 ADIA: Tu Compañera Inteligente")
-    
-    with gr.Tabs():
-        with gr.TabItem("💬 Modo Chat"):
-            chat_v1 = gr.Chatbot(label="Chat con ADIA", height=500)
-            txt_v1 = gr.Textbox(placeholder="Charla con ADIA aquí...")
-            btn_v1 = gr.Button("Enviar")
+    with gr.Row():
+        # IZQUIERDA: ADIA CHAT
+        with gr.Column(scale=1):
+            chat = gr.Chatbot(label="Terminal", height=450)
+            txt = gr.Textbox(show_label=False, placeholder="Envía un comando a ADIA...")
+            btn_canvas = gr.Button("🚀 ACTIVAR CANVAS", variant="primary")
 
-        with gr.TabItem("🎨 Modo Canvas"):
-            with gr.Row():
-                with gr.Column(scale=1):
-                    chat_v2 = gr.Chatbot(label="Instrucciones para ADIA", height=500)
-                    txt_v2 = gr.Textbox(placeholder="Pídeme un juego o app...")
-                    btn_v2 = gr.Button("¡Crear en Canvas!")
-                with gr.Column(scale=1):
-                    # Un Canvas más estilizado
-                    canvas_v2 = gr.HTML("<div style='text-align:center; padding:50px; border:1px dashed #555;'>El Canvas está listo para tu creación.</div>")
+        # DERECHA: CANVAS (Oculto hasta que presiones el botón)
+        with gr.Column(scale=1, visible=False) as canvas_area:
+            gr.Markdown("### 🖥️ SIMULADOR DE BRAZO")
+            gr.HTML(brazo_3d_html)
+            gr.Markdown("#### 📊 TELEMETRÍA DE MOTORES")
+            gr.HTML("<div style='color:#00f2ff; font-family:monospace;'>MOTOR_A: 45° | MOTOR_B: 12° | TEMP: 32°C</div>")
 
-    # Eventos
-    btn_v1.click(chat_logic, [txt_v1, chat_v1], [txt_v1, chat_v1])
-    txt_v1.submit(chat_logic, [txt_v1, chat_v1], [txt_v1, chat_v1])
+    # FUNCIONES
+    def activar():
+        return gr.update(visible=True)
 
-    # El modo Canvas actualiza el HTML
-    btn_v2.click(chat_logic, [txt_v2, chat_v2], [txt_v2, chat_v2, canvas_v2])
-    txt_v2.submit(chat_logic, [txt_v2, chat_v2], [txt_v2, chat_v2, canvas_v2])
+    def responder(m, h):
+        res = adia_logic(m, h)
+        h.append((m, res))
+        return "", h
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
-                               
+    # EVENTOS
+    txt.submit(responder, [txt, chat], [txt, chat])
+    btn_canvas.click(activar, None, canvas_area)
+
+interface.launch()
