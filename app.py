@@ -1,78 +1,69 @@
 import gradio as gr
 from groq import Groq
 import os
+import requests
 
-# 1. CONFIGURACIÓN
+# 1. CONFIGURACIÓN DEL CEREBRO
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def adia_brain(mensaje, historial):
-    sistema = "Eres ADIA v1.2, asistente de Jorge. Eres experta en robótica."
-    mensajes_limpios = [{"role": "system", "content": sistema}]
+def generar_imagen(prompt_visual):
+    # Usamos Pollinations para generar la imagen de forma gratuita y rápida
+    url_limpia = prompt_visual.replace(" ", "%20")
+    return f"https://image.pollinations.ai/prompt/{url_limpia}?width=1024&height=1024&nologo=true"
+
+def adia_v12_logic(mensaje, historial):
+    # Instrucciones para que ADIA sepa cuándo debe "imaginar"
+    sistema = """Eres ADIA v1.2. Si Jorge te pide que 'dibujes', 'imagines' o 'creas una imagen', 
+    debes responder confirmando la creación y describir brevemente qué estás visualizando."""
     
-    if historial:
-        for par in historial:
-            if par[0]: mensajes_limpios.append({"role": "user", "content": str(par[0])})
-            if par[1]: mensajes_limpios.append({"role": "assistant", "content": str(par[1])})
+    mensajes_ia = [{"role": "system", "content": sistema}]
+    for h in historial:
+        if h[0]: mensajes_ia.append({"role": "user", "content": str(h[0])})
+        if h[1]: mensajes_ia.append({"role": "assistant", "content": str(h[1])})
     
-    mensajes_limpios.append({"role": "user", "content": str(mensaje)})
+    mensajes_ia.append({"role": "user", "content": str(mensaje)})
 
     try:
-        completion = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_limpios)
-        return completion.choices[0].message.content
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=mensajes_ia
+        )
+        respuesta_texto = completion.choices[0].message.content
+        
+        # Lógica de detección de imagen
+        img_url = None
+        palabras_clave = ["dibuja", "imagina", "crea una imagen", "visualiza", "muestrame"]
+        if any(palabra in mensaje.lower() for palabra in palabras_clave):
+            img_url = generar_imagen(mensaje)
+            
+        return respuesta_texto, img_url
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: {str(e)}", None
 
-# 2. HTML Y JS (El bloque que causaba el error de comillas)
-vision_pro_html = """
-<div style="display: flex; flex-direction: column; align-items: center; background: #050505; padding: 10px; border-radius: 10px; border: 2px solid #00f2ff;">
-    <video id="webcam" style="width: 100%; max-width: 400px; border-radius: 5px; transform: scaleX(-1);" autoplay playsinline></video>
-    <canvas id="output_canvas" style="position: absolute; width: 100%; max-width: 400px; transform: scaleX(-1);"></canvas>
-    <div id="status" style="color: #00f2ff; font-family: monospace; margin-top: 10px;">[ BUSCANDO MANO ]</div>
-    <svg viewBox="0 0 200 200" style="width: 150px; height: 150px;">
-        <line id="robot_line" x1="100" y1="180" x2="100" y2="100" stroke="#00f2ff" stroke-width="8" stroke-linecap="round" />
-        <circle id="joint" cx="100" cy="100" r="6" fill="white" />
-    </svg>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script>
-const video = document.getElementById('webcam');
-const arm = document.getElementById('robot_line');
-const joint = document.getElementById('joint');
-const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-hands.setOptions({maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
-hands.onResults((results) => {
-  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    const p = results.multiHandLandmarks[0][8];
-    const tx = 100 + (p.x - 0.5) * 100;
-    const ty = 180 - (1 - p.y) * 150;
-    arm.setAttribute('x2', tx); arm.setAttribute('y2', ty);
-    joint.setAttribute('cx', tx); joint.setAttribute('cy', ty);
-    document.getElementById('status').innerText = "[ MANO DETECTADA ]";
-  }
-});
-new Camera(video, {onFrame: async () => await hands.send({image: video}), width: 640, height: 480}).start();
-</script>
-"""
-
-# 3. INTERFAZ
+# 2. INTERFAZ "VISUAL FORGE"
 with gr.Blocks(theme=gr.themes.Monochrome()) as app:
-    gr.Markdown("# 🦾 ADIA v1.2")
+    gr.Markdown("# 🦾 ADIA v1.2 | VISUAL GENERATION ENGINE")
+    
     with gr.Row():
-        with gr.Column():
-            chatbot = gr.Chatbot(height=400)
-            msg = gr.Textbox(label="Comando")
-            btn = gr.Button("🚀 ACTIVAR CANVAS")
-        with gr.Column(visible=False) as canvas_col:
-            gr.HTML(vision_pro_html)
+        with gr.Column(scale=2):
+            chatbot = gr.Chatbot(label="Terminal Jarvis", height=500)
+            msg = gr.Textbox(placeholder="Ej: ADIA, imagina un reactor Ark azul sobre una mesa de metal...")
+            btn = gr.Button("EJECUTAR PROTOCOLO", variant="primary")
+            
+        with gr.Column(scale=1):
+            gr.Markdown("### 🖼️ SALIDA VISUAL")
+            output_img = gr.Image(label="Última Generación", interactive=False)
+            gr.HTML("<div style='color:#00f2ff; font-family:monospace; font-size:12px;'>ESTADO: LISTO PARA RENDERIZAR</div>")
 
     def responder(m, h):
-        res = adia_brain(m, h)
-        h.append((m, res))
-        return "", h
+        if not m: return "", h, None
+        texto, imagen = adia_v12_logic(m, h)
+        h.append((m, texto))
+        return "", h, imagen
 
-    msg.submit(responder, [msg, chatbot], [msg, chatbot])
-    btn.click(lambda: gr.update(visible=True), None, canvas_col)
+    msg.submit(responder, [msg, chatbot], [msg, chatbot, output_img])
+    btn.click(responder, [msg, chatbot], [msg, chatbot, output_img])
 
+# 3. LANZAMIENTO (Puerto Render)
 if __name__ == "__main__":
     app.launch(server_name="0.0.0.0", server_port=10000)
