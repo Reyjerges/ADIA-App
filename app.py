@@ -3,26 +3,28 @@ from groq import Groq
 import os
 import re
 
-# Configura tu API KEY en Render
+# Cliente Llama 3
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def extract_html(history):
-    if not history: return "Sin contenido"
-    # El historial aquí es una lista de listas: [[user, bot], [user, bot]]
-    last_bot_msg = history[-1][1]
-    match = re.search(r"```html\n(.*?)\n```", last_bot_msg, re.DOTALL)
+    if not history: return ""
+    # Sacamos el contenido del último mensaje del asistente
+    last_msg = history[-1][1] 
+    match = re.search(r"```html\n(.*?)\n```", last_msg, re.DOTALL)
     if match: return match.group(1)
-    return f"<div style='padding:20px;'>{last_bot_msg}</div>"
+    return f"<div style='padding:20px;'>{last_msg}</div>"
 
 def responder(message, history):
-    # Convertir historial de listas a formato Groq (dict)
-    messages = [{"role": "system", "content": "Eres ADIA. Si creas juegos, usa bloques ```html"}]
-    for h in history:
-        messages.append({"role": "user", "content": h[0]})
-        messages.append({"role": "assistant", "content": h[1]})
+    # CORRECCIÓN AQUÍ: Convertimos el historial a diccionarios compatibles con Llama 3
+    messages = [{"role": "system", "content": "Eres ADIA. Usa bloques ```html para juegos."}]
+    
+    for user_msg, assistant_msg in history:
+        if user_msg: messages.append({"role": "user", "content": user_msg})
+        if assistant_msg: messages.append({"role": "assistant", "content": assistant_msg})
     
     messages.append({"role": "user", "content": message})
 
+    # Llamada a la API
     completion = client.chat.completions.create(
         model="llama3-8b-8192",
         messages=messages,
@@ -36,40 +38,40 @@ def responder(message, history):
             yield full_response
 
 with gr.Blocks(fill_height=True) as demo:
-    gr.Markdown("# 🤖 ADIA System (Core Edition)")
+    gr.Markdown("# 🤖 ADIA System")
     
-    mode = gr.Radio(["Chat Normal", "Modo Canvas"], value="Chat Normal", label="Entorno")
+    with gr.Row():
+        mode = gr.Radio(["Chat Normal", "Modo Canvas"], value="Chat Normal", label="Entorno")
 
     with gr.Row():
-        # COLUMNA CHAT
+        # Chat
         with gr.Column(scale=1):
             chatbot = gr.Chatbot(height=500)
-            txt = gr.Textbox(show_label=False, placeholder="Escribe un mensaje y presiona Enter...")
-            btn_enviar = gr.Button("Enviar")
+            txt = gr.Textbox(placeholder="Escribe y presiona Enter...")
+            btn = gr.Button("Enviar")
 
-        # COLUMNA CANVAS
+        # Canvas
         with gr.Column(scale=1, visible=False) as canvas_col:
             gr.Markdown("### 🎨 Canvas")
-            canvas_view = gr.HTML("Carga un juego o código...")
+            canvas_view = gr.HTML("Esperando código...")
 
-    # Lógica de procesamiento
     def chat_engine(msg, history):
-        # 1. Añadir mensaje del usuario al chat
-        new_history = history + [[msg, ""]]
-        yield "", new_history, gr.update()
+        # 1. Agregamos el mensaje del usuario al historial visual
+        history = history + [[msg, ""]]
+        yield "", history, gr.update()
         
-        # 2. Obtener respuesta de la IA
-        response_gen = responder(msg, history)
+        # 2. Generamos la respuesta
+        response_gen = responder(msg, history[:-1]) # Enviamos historial previo
         for partial_res in response_gen:
-            new_history[-1][1] = partial_res
-            # Actualizamos chat y canvas en tiempo real
-            yield "", new_history, extract_html(new_history)
+            history[-1][1] = partial_res
+            # 3. Actualizamos chat y canvas al mismo tiempo
+            yield "", history, extract_html(history)
 
-    # Eventos (Enter y Botón)
+    # Eventos
     txt.submit(chat_engine, [txt, chatbot], [txt, chatbot, canvas_view])
-    btn_enviar.click(chat_engine, [txt, chatbot], [txt, chatbot, canvas_view])
-
-    # Switch de modo
+    btn.click(chat_engine, [txt, chatbot], [txt, chatbot, canvas_view])
+    
+    # Toggle Canvas
     mode.change(lambda x: gr.update(visible=(x == "Modo Canvas")), mode, canvas_col)
 
 if __name__ == "__main__":
