@@ -127,4 +127,5 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as app:
     msg.submit(response, [msg, chatbot], [msg, chatbot])
     btn_canvas.click(toggle_canvas, None, canvas_col)
 
-app.launch()
+# Reemplaza la última línea por esta:
+app.launch(server_name="0.0.0.0", server_port=10000)
