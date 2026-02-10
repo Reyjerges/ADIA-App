@@ -11,7 +11,7 @@ def adia_normal_chat(message, history):
         if not api_key:
             return "❌ Error: Configura GROQ_API_KEY en Render."
             
-        messages = [{"role": "system", "content": "Eres ADIA, una IA avanzada y brillante."}]
+        messages = [{"role": "system", "content": "Eres ADIA, una IA avanzada, brillante y muy comunicativa."}]
         
         for turn in history:
             if isinstance(turn, dict):
@@ -39,19 +39,19 @@ def adia_canvas_generator(prompt):
         if not api_key:
             return "<div style='color:red;'>❌ Falta API Key</div>"
 
-        # MEJORA AQUÍ: Instrucciones detalladas para que ADIA no haga cuadros estáticos
-        system_prompt = """Eres ADIA, una ingeniera de juegos experta. 
-        Tus reglas de oro para el código:
-        1. NUNCA hagas dibujos estáticos. Usa SIEMPRE requestAnimationFrame para crear un Game Loop.
-        2. Usa objetos con funciones update() y draw().
-        3. Añade 'Game Feel': usa Math.sin() para que los elementos floten o respiren.
-        4. Estética: Usa bordes redondeados (roundRect) y sombras suaves (ctx.shadowBlur o elipses transparentes).
-        5. Interactividad: Asegúrate de que el canvas responda a clics o toques.
-        6. Responde SOLO con el código HTML/JS completo en un bloque ```html."""
+        # INSTRUCCIONES CRÍTICAS PARA EVITAR PANTALLA NEGRA
+        system_prompt = """Eres ADIA, experta en desarrollo de juegos. 
+        Para evitar que la pantalla se quede negra, sigue estas reglas estrictas:
+        1. Todo el código JS debe estar dentro de 'window.onload = () => { ... };'.
+        2. Asegúrate de definir el fondo del canvas (ctx.fillRect) al inicio del loop.
+        3. Usa requestAnimationFrame para el movimiento.
+        4. Si el código es largo, prioriza que sea funcional y esté completo.
+        5. Usa estilos visuales modernos (bordes redondeados, sombras, gradientes).
+        6. Responde SOLO con el código HTML/JS en un bloque ```html."""
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Crea un juego o app interactiva con movimiento fluido para: {prompt}"}
+            {"role": "user", "content": f"Crea un juego interactivo con gráficos avanzados y movimiento fluido para: {prompt}"}
         ]
         
         completion = client.chat.completions.create(
@@ -61,6 +61,7 @@ def adia_canvas_generator(prompt):
         
         codigo_crudo = completion.choices[0].message.content
         
+        # Extracción segura del código
         if "```html" in codigo_crudo:
             codigo = codigo_crudo.split("```html")[1].split("```")[0]
         elif "```" in codigo_crudo:
@@ -72,7 +73,7 @@ def adia_canvas_generator(prompt):
     except Exception as e:
         return f"<div style='color:red;'>⚠️ Error: {str(e)}</div>"
 
-# Construcción de la Interfaz
+# Interfaz de Usuario
 with gr.Blocks(title="ADIA AI", theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🤖 ADIA: Intelligence & Canvas")
     
@@ -83,10 +84,11 @@ with gr.Blocks(title="ADIA AI", theme=gr.themes.Soft()) as demo:
         with gr.TabItem("🎨 Modo Canvas"):
             with gr.Row():
                 with gr.Column(scale=1):
-                    user_input = gr.Textbox(label="Instrucciones para el juego", placeholder="Ej: Un juego de naves espaciales...", lines=4)
-                    btn = gr.Button("🚀 GENERAR CÓDIGO VIVO", variant="primary")
+                    user_input = gr.Textbox(label="Instrucciones para ADIA", placeholder="¿Qué juego crearemos hoy?", lines=4)
+                    btn = gr.Button("🚀 GENERAR JUEGO (EVITAR PANTALLA NEGRA)", variant="primary")
                 with gr.Column(scale=2):
-                    canvas_output = gr.HTML(value="<div style='text-align:center; padding:40px;'>Esperando tus órdenes para programar...</div>")
+                    # HTML con altura mínima para evitar que parezca vacío
+                    canvas_output = gr.HTML(value="<div style='height:400px; display:flex; align-items:center; justify-content:center; background:#f0f2f5; border-radius:15px; color:#888;'>Esperando el código de ADIA...</div>")
 
             btn.click(fn=adia_canvas_generator, inputs=[user_input], outputs=[canvas_output])
 
