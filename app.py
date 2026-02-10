@@ -1,72 +1,90 @@
 import gradio as gr
-from groq import Groq
-import os
+import requests
+import time
+import json
 
-# Configuración de la API Key
-# Asegúrate de tener la variable de entorno GROQ_API_KEY configurada
-api_key = os.environ.get("GROQ_API_KEY", "")
-client = Groq(api_key=api_key)
+# --- CONFIGURACIÓN DEL MODELO ---
+# El API Key se maneja automáticamente en el entorno de ejecución.
+API_KEY = "" 
+MODEL_ID = "gemini-2.5-flash-preview-09-2025"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_ID}:generateContent?key={API_KEY}"
 
-def adia_chat_response(message, history):
+# --- INSTRUCCIONES DEL SISTEMA ---
+SYSTEM_PROMPT = """
+Eres un asistente virtual experto, amable y servicial. 
+Tus respuestas deben ser claras, precisas y en español.
+Si no sabes algo, admítelo con honestidad.
+Mantén siempre un tono profesional pero cercano.
+"""
+
+def call_gemini_api(prompt, history):
     """
-    Función para procesar los mensajes del chat usando el modelo Llama 3.1 de Groq.
-    Mantiene el historial de la conversación para dar contexto.
+    Función para comunicarse con la API de Gemini con manejo de errores y reintentos.
     """
-    try:
-        if not api_key:
-            return "❌ Error: La API Key de Groq no está configurada. Por favor, revisa tus variables de entorno."
-        
-        # Mensaje de sistema para definir la personalidad de ADIA
-        messages = [{"role": "system", "content": "Eres ADIA, una IA avanzada, brillante y muy comunicativa. Respondes de forma clara, amable y profesional."}]
-        
-        # Reconstrucción del historial de la conversación
-        for turn in history:
-            if isinstance(turn, dict):
-                role = turn.get("role")
-                content = turn.get("content")
-                if role and content:
-                    messages.append({"role": role, "content": content})
-            elif isinstance(turn, (list, tuple)) and len(turn) == 2:
-                # Formato estándar de Gradio ChatInterface (Usuario, Asistente)
-                messages.append({"role": "user", "content": turn[0]})
-                messages.append({"role": "assistant", "content": turn[1]})
-        
-        # Añadir el mensaje actual del usuario
-        messages.append({"role": "user", "content": message})
-        
-        # Llamada a la API de Groq
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant", 
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1024
-        )
-        
-        return completion.choices[0].message.content
-        
-    except Exception as e:
-        return f"❌ Error del sistema: {str(e)}"
-
-# Construcción de la Interfaz de Usuario con Gradio
-with gr.Blocks(title="ADIA AI", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("""
-    # 🤖 ADIA: Intelligence Only
-    ### Bienvenida al modo de conversación avanzada.
-    """)
+    # Construimos el historial para que el modelo tenga contexto
+    messages = []
     
-    # Interfaz de Chat optimizada
-    gr.ChatInterface(
-        fn=adia_chat_response,
-        chatbot=gr.Chatbot(height=500, bubble_full_width=False),
-        textbox=gr.Textbox(placeholder="Escribe tu mensaje aquí...", container=False, scale=7),
-        examples=["Hola ADIA, ¿qué puedes hacer?", "¿Puedes explicarme la computación cuántica?", "Escríbeme un poema corto."],
-        cache_examples=False,
+    # Añadimos los mensajes previos del historial de Gradio
+    for human, assistant in history:
+        messages.append({"role": "user", "parts": [{"text": human}]})
+        messages.append({"role": "model", "parts": [{"text": assistant}]})
+    
+    # Añadimos la pregunta actual
+    messages.append({"role": "user", "parts": [{"text": prompt}]})
+
+    payload = {
+        "contents": messages,
+        "systemInstruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
+        }
+    }
+
+    # Implementación de reintentos con Backoff Exponencial
+    max_retries = 5
+    for i in range(max_retries):
+        try:
+            response = requests.post(API_URL, json=payload, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                # Extraemos el texto de la respuesta
+                return result['candidates'][0]['content']['parts'][0]['text']
+            elif response.status_code == 429:
+                # Error de cuota (Too Many Requests)
+                time.sleep(2**i)
+                continue
+            else:
+                return f"Error del servidor: {response.status_code} - {response.text}"
+        except Exception as e:
+            if i == max_retries - 1:
+                return f"Error de conexión tras varios intentos: {str(e)}"
+            time.sleep(2**i)
+
+def chat_function(message, history):
+    """
+    Función principal que conecta la interfaz con la lógica de la API.
+    """
+    if not message.strip():
+        return "Por favor, escribe algo."
+    
+    return call_gemini_api(message, history)
+
+# --- INTERFAZ DE USUARIO (GRADIO) ---
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.Markdown(f"# Asistente Inteligente ({MODEL_ID})")
+    gr.Markdown("Este chat utiliza inteligencia artificial para responder tus dudas con contexto de conversación.")
+    
+    chatbot = gr.ChatInterface(
+        fn=chat_function,
+        textbox=gr.Textbox(
+            placeholder="Hazme una pregunta...",
+            container=False, 
+            scale=7
+        ),
+        retry_btn="Reintentar",
+        undo_btn="Deshacer",
+        clear_btn="Limpiar Chat",
     )
 
-    gr.Markdown("---")
-    gr.Markdown("ADIA funciona mediante la API de Groq y el modelo Llama 3.1.")
-
 if __name__ == "__main__":
-    # Obtener puerto de las variables de entorno para despliegue (ej. Render o Heroku)
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    # Importante para despliegue: server_name="0.0.0.0"
+    demo.launch(server_name="0.0.0.0")
