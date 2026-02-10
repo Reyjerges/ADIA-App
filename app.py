@@ -1,83 +1,55 @@
-import os
-import time
-import requests
 import gradio as gr
+from groq import Groq
+import os
 
-# Configuración - Render tomará la API_KEY de las variables de entorno
-API_KEY = os.getenv("GROQ_API_KEY", "") 
-MODEL_NAME = "llama3-70b-8192"
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+# CONFIGURACIÓN DE JARVIS
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def call_groq_api(messages):
-    if not API_KEY:
-        return None, "Error: Configura GROQ_API_KEY en las variables de entorno de Render."
-
-    payload = {
-        "model": MODEL_NAME,
-        "messages": messages,
-        "temperature": 0.7,
-        "max_tokens": 2048
-    }
-
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    delays = [1, 2, 4, 8, 16]
-    for i, delay in enumerate(delays):
-        try:
-            response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=30)
-            if response.status_code == 200:
-                return response.json()['choices'][0]['message']['content'], None
-            elif response.status_code in [429, 500, 502, 503, 504]:
-                time.sleep(delay)
-            else:
-                return None, f"Error {response.status_code}"
-        except Exception as e:
-            if i == len(delays) - 1: return None, str(e)
-            time.sleep(delay)
-    return None, "Error de conexión persistente."
-
-def respond(message, history):
-    system_prompt = "Eres ADIA, un asistente digital inteligente y amable."
+def adia_core(mensaje, historial):
+    # 1. ARREGLO DEL ERROR DE FORMATO (Lo que sale en tu foto)
+    mensajes_validados = [{"role": "system", "content": "Eres ADIA v1.2 (Jarvis Core). Ayuda a Jorge a diseñar su brazo robótico con datos técnicos reales."}]
     
-    # Construcción de mensajes
-    messages = [{"role": "system", "content": system_prompt}]
-    for user_msg, bot_msg in history:
-        messages.append({"role": "user", "content": user_msg})
-        messages.append({"role": "assistant", "content": bot_msg})
-    messages.append({"role": "user", "content": message})
+    for h in historial:
+        if h[0]: mensajes_validados.append({"role": "user", "content": str(h[0])})
+        if h[1]: mensajes_validados.append({"role": "assistant", "content": str(h[1])})
+    
+    mensajes_validados.append({"role": "user", "content": str(mensaje)})
 
-    bot_message, error = call_groq_api(messages)
-    
-    if error:
-        history.append((message, f"⚠️ {error}"))
-    else:
-        history.append((message, bot_message))
-    
-    return "", history
+    try:
+        # 2. LLAMADA A LA INTELIGENCIA
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=mensajes_validados,
+            temperature=0.5
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ ERROR DE SISTEMA: {str(e)}"
 
-with gr.Blocks(theme=gr.themes.Soft(), title="ADIA") as demo:
-    gr.Markdown("# 🤖 ADIA\nAsistente Digital de Inteligencia Artificial")
-    
-    chatbot = gr.Chatbot(label="Chat con ADIA", height=500)
+# 3. INTERFAZ DE BÚSQUEDA Y DISEÑO
+with gr.Blocks(theme=gr.themes.Monochrome()) as app:
+    gr.Markdown("# 🛡️ ADIA v1.2 | JARVIS RESEARCH TERMINAL")
     
     with gr.Row():
-        msg = gr.Textbox(
-            label="Mensaje", 
-            placeholder="Escribe aquí...", 
-            scale=8,
-            container=False
-        )
-        submit_btn = gr.Button("Enviar", variant="primary", scale=2)
-    
-    gr.ClearButton([msg, chatbot], value="Limpiar")
+        with gr.Column(scale=4):
+            chatbot = gr.Chatbot(label="Consola de Investigación", height=500)
+            msg = gr.Textbox(placeholder="Comando: ADIA, busca cómo conectar servomotores a un ESP32...")
+            btn = gr.Button("INICIAR ESCANEO", variant="primary")
+            
+        with gr.Column(scale=2):
+            gr.Markdown("### 🔍 BÚSQUEDA TÉCNICA")
+            gr.Markdown("ADIA puede buscar:\n- Esquemas de servomotores\n- Programación en C++\n- Modelos 3D de brazos")
+            gr.Image("https://i.imgur.com/uR1d3N3.png", label="Estado del Reactor", width=200)
 
-    # Vinculación corregida
-    msg.submit(respond, [msg, chatbot], [msg, chatbot])
-    submit_btn.click(respond, [msg, chatbot], [msg, chatbot])
+    def responder(m, h):
+        if not m: return "", h
+        res = adia_core(m, h)
+        h.append((m, res))
+        return "", h
+
+    msg.submit(responder, [msg, chatbot], [msg, chatbot])
+    btn.click(responder, [msg, chatbot], [msg, chatbot])
 
 if __name__ == "__main__":
-    # Importante para Render: server_name="0.0.0.0"
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    app.launch(server_name="0.0.0.0", server_port=10000)
+        
