@@ -3,16 +3,23 @@ from groq import Groq
 import os
 
 # Configuración de la API Key
+# Asegúrate de tener la variable de entorno GROQ_API_KEY configurada
 api_key = os.environ.get("GROQ_API_KEY", "")
 client = Groq(api_key=api_key)
 
-def adia_normal_chat(message, history):
+def adia_chat_response(message, history):
+    """
+    Función para procesar los mensajes del chat usando el modelo Llama 3.1 de Groq.
+    Mantiene el historial de la conversación para dar contexto.
+    """
     try:
         if not api_key:
-            return "❌ Error: Configura GROQ_API_KEY en Render."
-            
-        messages = [{"role": "system", "content": "Eres ADIA, una IA avanzada, brillante y muy comunicativa."}]
+            return "❌ Error: La API Key de Groq no está configurada. Por favor, revisa tus variables de entorno."
         
+        # Mensaje de sistema para definir la personalidad de ADIA
+        messages = [{"role": "system", "content": "Eres ADIA, una IA avanzada, brillante y muy comunicativa. Respondes de forma clara, amable y profesional."}]
+        
+        # Reconstrucción del historial de la conversación
         for turn in history:
             if isinstance(turn, dict):
                 role = turn.get("role")
@@ -20,78 +27,46 @@ def adia_normal_chat(message, history):
                 if role and content:
                     messages.append({"role": role, "content": content})
             elif isinstance(turn, (list, tuple)) and len(turn) == 2:
+                # Formato estándar de Gradio ChatInterface (Usuario, Asistente)
                 messages.append({"role": "user", "content": turn[0]})
                 messages.append({"role": "assistant", "content": turn[1]})
-            
+        
+        # Añadir el mensaje actual del usuario
         messages.append({"role": "user", "content": message})
         
+        # Llamada a la API de Groq
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant", 
-            messages=messages
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1024
         )
+        
         return completion.choices[0].message.content
         
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ Error del sistema: {str(e)}"
 
-def adia_canvas_generator(prompt):
-    try:
-        if not api_key:
-            return "<div style='color:red;'>❌ Falta API Key</div>"
-
-        # INSTRUCCIONES CRÍTICAS PARA EVITAR PANTALLA NEGRA
-        system_prompt = """Eres ADIA, experta en desarrollo de juegos. 
-        Para evitar que la pantalla se quede negra, sigue estas reglas estrictas:
-        1. Todo el código JS debe estar dentro de 'window.onload = () => { ... };'.
-        2. Asegúrate de definir el fondo del canvas (ctx.fillRect) al inicio del loop.
-        3. Usa requestAnimationFrame para el movimiento.
-        4. Si el código es largo, prioriza que sea funcional y esté completo.
-        5. Usa estilos visuales modernos (bordes redondeados, sombras, gradientes).
-        6. Responde SOLO con el código HTML/JS en un bloque ```html."""
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Crea un juego interactivo con gráficos avanzados y movimiento fluido para: {prompt}"}
-        ]
-        
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
-            messages=messages
-        )
-        
-        codigo_crudo = completion.choices[0].message.content
-        
-        # Extracción segura del código
-        if "```html" in codigo_crudo:
-            codigo = codigo_crudo.split("```html")[1].split("```")[0]
-        elif "```" in codigo_crudo:
-            codigo = codigo_crudo.split("```")[1].split("```")[0]
-        else:
-            codigo = codigo_crudo
-            
-        return codigo
-    except Exception as e:
-        return f"<div style='color:red;'>⚠️ Error: {str(e)}</div>"
-
-# Interfaz de Usuario
+# Construcción de la Interfaz de Usuario con Gradio
 with gr.Blocks(title="ADIA AI", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 ADIA: Intelligence & Canvas")
+    gr.Markdown("""
+    # 🤖 ADIA: Intelligence Only
+    ### Bienvenida al modo de conversación avanzada.
+    """)
     
-    with gr.Tabs():
-        with gr.TabItem("💬 Modo Chat"):
-            gr.ChatInterface(fn=adia_normal_chat)
-            
-        with gr.TabItem("🎨 Modo Canvas"):
-            with gr.Row():
-                with gr.Column(scale=1):
-                    user_input = gr.Textbox(label="Instrucciones para ADIA", placeholder="¿Qué juego crearemos hoy?", lines=4)
-                    btn = gr.Button("🚀 GENERAR JUEGO (EVITAR PANTALLA NEGRA)", variant="primary")
-                with gr.Column(scale=2):
-                    # HTML con altura mínima para evitar que parezca vacío
-                    canvas_output = gr.HTML(value="<div style='height:400px; display:flex; align-items:center; justify-content:center; background:#f0f2f5; border-radius:15px; color:#888;'>Esperando el código de ADIA...</div>")
+    # Interfaz de Chat optimizada
+    gr.ChatInterface(
+        fn=adia_chat_response,
+        chatbot=gr.Chatbot(height=500, bubble_full_width=False),
+        textbox=gr.Textbox(placeholder="Escribe tu mensaje aquí...", container=False, scale=7),
+        examples=["Hola ADIA, ¿qué puedes hacer?", "¿Puedes explicarme la computación cuántica?", "Escríbeme un poema corto."],
+        cache_examples=False,
+    )
 
-            btn.click(fn=adia_canvas_generator, inputs=[user_input], outputs=[canvas_output])
+    gr.Markdown("---")
+    gr.Markdown("ADIA funciona mediante la API de Groq y el modelo Llama 3.1.")
 
 if __name__ == "__main__":
+    # Obtener puerto de las variables de entorno para despliegue (ej. Render o Heroku)
     port = int(os.environ.get("PORT", 7860))
     demo.launch(server_name="0.0.0.0", server_port=port)
