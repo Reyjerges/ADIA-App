@@ -13,10 +13,13 @@ def adia_normal_chat(message, history):
             
         messages = [{"role": "system", "content": "Eres ADIA, una IA avanzada."}]
         
-        # Historial compatible con versiones antiguas de Gradio
-        for h_user, h_bot in history:
-            messages.append({"role": "user", "content": h_user})
-            messages.append({"role": "assistant", "content": h_bot})
+        # Este bucle detecta automáticamente si el historial es de tipo antiguo o nuevo
+        for turn in history:
+            if isinstance(turn, dict): # Formato nuevo (diccionario)
+                messages.append(turn)
+            elif isinstance(turn, (list, tuple)): # Formato antiguo (tupla/lista)
+                messages.append({"role": "user", "content": turn[0]})
+                messages.append({"role": "assistant", "content": turn[1]})
             
         messages.append({"role": "user", "content": message})
         
@@ -28,6 +31,7 @@ def adia_normal_chat(message, history):
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
+
 
 def adia_canvas_generator(prompt):
     try:
