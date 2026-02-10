@@ -3,15 +3,15 @@ import time
 import requests
 import gradio as gr
 
-# Configuración de Groq
-# El API Key se deja vacío para que el entorno lo gestione o el usuario lo asigne
+# Configuración del Asistente ADIA
+# El API Key se deja vacío para que el entorno lo gestione automáticamente
 API_KEY = "" 
 MODEL_NAME = "llama3-70b-8192"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 def call_groq_api(messages):
     """
-    Realiza la petición a la API de Groq con lógica de reintentos.
+    Realiza la petición a la API de Groq con lógica de reintentos (Backoff Exponencial).
     """
     payload = {
         "model": MODEL_NAME,
@@ -25,8 +25,7 @@ def call_groq_api(messages):
         "Content-Type": "application/json"
     }
 
-    # Implementación de reintentos con Backoff Exponencial
-    # 1s, 2s, 4s, 8s, 16s
+    # Reintentos según requerimiento: 1s, 2s, 4s, 8s, 16s
     delays = [1, 2, 4, 8, 16]
     
     for i, delay in enumerate(delays):
@@ -38,20 +37,18 @@ def call_groq_api(messages):
                 timeout=30
             )
             
-            # Si es exitoso, devolvemos el contenido
             if response.status_code == 200:
                 result = response.json()
                 return result['choices'][0]['message']['content'], None
             
-            # Si hay error de Rate Limit (429) o error de servidor (5xx)
             elif response.status_code in [429, 500, 502, 503, 504]:
                 if i < len(delays) - 1:
                     time.sleep(delay)
                     continue
                 else:
-                    return None, f"Error de Groq tras varios reintentos: {response.status_code}"
+                    return None, f"Error {response.status_code}: ADIA está experimentando mucha carga."
             else:
-                return None, f"Error de API: {response.status_code} - {response.text}"
+                return None, f"Error de API: {response.status_code}"
                 
         except Exception as e:
             if i < len(delays) - 1:
@@ -59,65 +56,69 @@ def call_groq_api(messages):
                 continue
             return None, f"Error de conexión: {str(e)}"
 
-    return None, "Error desconocido al contactar con Groq."
+    return None, "Error crítico de comunicación."
 
 def chat_interface(message, history):
     """
-    Gestiona el flujo de la conversación y el historial.
+    Lógica de conversación personalizada para ADIA.
     """
-    # Convertir historial de Gradio al formato de OpenAI/Groq
-    formatted_history = [
-        {"role": "system", "content": "Eres un asistente servicial y preciso que utiliza el modelo Llama 3 a través de Groq."}
-    ]
+    # Prompt de sistema definiendo la identidad de ADIA
+    system_prompt = (
+        "Eres ADIA (Asistente Digital de Inteligencia Artificial). "
+        "Eres un asistente inteligente, eficiente y amable. "
+        "Siempre te presentas como ADIA si te preguntan quién eres."
+    )
+    
+    formatted_history = [{"role": "system", "content": system_prompt}]
     
     for user_msg, bot_msg in history:
-        formatted_history.append({"role": "user", "content": user_msg})
-        formatted_history.append({"role": "assistant", "content": bot_msg})
+        if user_msg: formatted_history.append({"role": "user", "content": user_msg})
+        if bot_msg: formatted_history.append({"role": "assistant", "content": bot_msg})
     
     formatted_history.append({"role": "user", "content": message})
 
-    # Llamada a la API
     response_text, error = call_groq_api(formatted_history)
     
     if error:
-        # Mostramos el error de forma amigable en el chat
-        return history + [[message, f"❌ **Error:** {error}"]]
+        final_msg = f"⚠️ **Aviso de ADIA:** {error}"
+    else:
+        final_msg = response_text
     
-    return history + [[message, response_text]]
+    history.append((message, final_msg))
+    return "", history
 
-# Construcción de la interfaz de usuario
-with gr.Blocks(theme=gr.themes.Soft(), title="Llama 3 Groq Chat") as demo:
-    gr.Markdown(
-        """
-        # ⚡ Llama 3 en Groq
-        Bienvenido a la interfaz de chat ultrarrápida utilizando el modelo Llama 3-70B de Meta, 
-        servido a través de la infraestructura de Groq.
-        """
-    )
+# Interfaz de Gradio personalizada para ADIA
+with gr.Blocks(theme=gr.themes.Default(primary_hue="blue"), title="ADIA - Asistente Digital") as demo:
+    gr.Markdown("""
+    # 🤖 ADIA
+    ### Asistente Digital de Inteligencia Artificial
+    *Desarrollado para asistencia inteligente en tiempo real.*
+    """)
     
     chatbot = gr.Chatbot(
-        label="Conversación con Llama 3",
-        bubble_full_width=False,
-        height=550
+        label="Chat con ADIA", 
+        height=550,
+        show_copy_button=True
     )
     
     with gr.Row():
         msg = gr.Textbox(
-            label="Tu mensaje",
-            placeholder="Escribe algo para Llama 3...",
+            label="Escribe aquí...",
+            placeholder="Hola ADIA, ¿en qué puedes ayudarme hoy?",
             scale=8
         )
-        submit_btn = gr.Button("Enviar", variant="primary", scale=1)
+        submit_btn = gr.Button("Enviar a ADIA", variant="primary", scale=2)
     
     with gr.Row():
-        clear = gr.ClearButton([msg, chatbot], value="Limpiar chat")
+        gr.ClearButton([msg, chatbot], value="Limpiar Historial", variant="secondary")
 
-    # Acción al enviar
-    msg.submit(chat_interface, [msg, chatbot], [chatbot])
-    msg.submit(lambda: "", None, msg) # Limpiar el input después de enviar
-    
-    submit_btn.click(chat_interface, [msg, chatbot], [chatbot])
-    submit_btn.click(lambda: "", None, msg)
+    msg.submit(chat_interface, [msg, chatbot], [msg, chatbot])
+    submit_btn.click(chat_interface, [msg, chatbot], [msg, chatbot])
 
 if __name__ == "__main__":
-    demo.launch()
+    # Configuración de red y puerto
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False
+    )
