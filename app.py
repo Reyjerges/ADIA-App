@@ -14,25 +14,29 @@ def adia_core(mensaje, historial):
 
     mensajes_validados = [sistema]
 
-    # Validamos historial
+    # Validamos historial y evitamos errores
     if historial:
         for item in historial:
-            if len(item) == 2:
+            # Solo procesamos si item tiene exactamente 2 elementos
+            if item and len(item) == 2:
                 usuario, bot = item
                 if usuario:
                     mensajes_validados.append({"role": "user", "content": str(usuario)})
                 if bot:
                     mensajes_validados.append({"role": "assistant", "content": str(bot)})
 
-    mensajes_validados.append({"role": "user", "content": str(mensaje)})
+    # Añadimos el mensaje actual, asegurándonos que sea texto
+    if mensaje:
+        mensajes_validados.append({"role": "user", "content": str(mensaje)})
 
     try:
+        # Llamada a la API de Groq
         busqueda = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensajes_validados,
             temperature=0.4
         )
-        # Tomamos la respuesta directamente
+        # Tomamos la respuesta directamente del diccionario
         contenido = busqueda.choices[0].message["content"]
         return contenido
     except Exception as e:
@@ -64,7 +68,4 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as app:
     btn.click(responder, [msg, chatbot], [msg, chatbot])
 
     # Limpiar historial correctamente
-    limpiar.click(lambda: [], None, chatbot, queue=False)
-
-if __name__ == "__main__":
-    app.launch(server_name="0.0.0.0", server_port=10000)
+    limpiar.click(lambda: [], None, chatbot, queue=
