@@ -68,4 +68,7 @@ with gr.Blocks(theme=gr.themes.Monochrome()) as app:
     btn.click(responder, [msg, chatbot], [msg, chatbot])
 
     # Limpiar historial correctamente
-    limpiar.click(lambda: [], None, chatbot, queue=
+    limpiar.click(lambda: [], None, chatbot, queue=False)
+
+if __name__ == "__main__":
+    app.launch(server_name="0.0.0.0", server_port=10000)
