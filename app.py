@@ -1,3 +1,4 @@
+
 import os
 import gradio as gr
 from groq import Groq
@@ -60,4 +61,19 @@ with gr.Blocks(theme=gr.themes.Soft()) as app:
         if not texto:
             return "", chat_historial
         
-        respuesta = adia_core(
+        respuesta = adia_core(texto, chat_historial)
+        chat_historial.append((texto, respuesta))
+        return "", chat_historial
+
+    # Conexiones de eventos
+    msg.submit(responder, [msg, chatbot], [msg, chatbot])
+    btn.click(responder, [msg, chatbot], [msg, chatbot])
+    
+    # Función para limpiar el chat
+    limpiar.click(lambda: None, None, chatbot, queue=False)
+
+# --- LANZAMIENTO CONFIGURADO PARA RENDER ---
+if __name__ == "__main__":
+    # Importante: Render necesita el puerto dinámico y el server_name 0.0.0.0
+    puerto = int(os.environ.get("PORT", 7860))
+    app.launch(server_name="0.0.0.0", server_port=puerto)
