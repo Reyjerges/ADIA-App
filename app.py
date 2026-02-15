@@ -51,7 +51,10 @@ with gr.Blocks() as app:
 
     btn.click(responder, [msg, chatbot], [msg, chatbot])
     msg.submit(responder, [msg, chatbot], [msg, chatbot])
-
 if __name__ == "__main__":
+    import os
+    # Render asigna un puerto dinámico en la variable PORT
     puerto = int(os.environ.get("PORT", 7860))
-    app.launch(server_name="0.0.0.0", server_port=puerto)
+    # 'share=False' es vital en Render para evitar conflictos de túneles SSH
+    app.launch(server_name="0.0.0.0", server_port=puerto, share=False)
+
