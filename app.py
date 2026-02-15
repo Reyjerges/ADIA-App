@@ -6,25 +6,21 @@ import os
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def adia_core(mensaje, historial):
-    # Sistema básico para ADIA
     sistema = {
-        "role": "system",
-        "content": "Eres ADIA v1.2. Experta en IA y programación de ML. Responde técnico pero fácil de entender."
+        "role": "system", 
+        "content": "Eres ADIA v1.2. Experta en IA y programación de ML. Creada por un futuro ingeniero robótico. Responde técnico pero fácil."
     }
 
     mensajes_validados = [sistema]
 
-    # Validamos historial de forma segura
+    # Procesamos el historial para que ADIA tenga memoria
     if historial:
-        for item in historial:
-            if isinstance(item, (list, tuple)) and len(item) == 2:
-                usuario, bot = item
-                if usuario:
-                    mensajes_validados.append({"role": "user", "content": str(usuario)})
-                if bot:
-                    mensajes_validados.append({"role": "assistant", "content": str(bot)})
+        for usuario, bot in historial:
+            if usuario:
+                mensajes_validados.append({"role": "user", "content": str(usuario)})
+            if bot:
+                mensajes_validados.append({"role": "assistant", "content": str(bot)})
 
-    # Añadimos el mensaje actual solo si no está vacío
     if mensaje:
         mensajes_validados.append({"role": "user", "content": str(mensaje)})
 
@@ -34,25 +30,38 @@ def adia_core(mensaje, historial):
             messages=mensajes_validados,
             temperature=0.4
         )
-        contenido = busqueda.choices[0].message["content"]
-        return contenido
+        # CORRECCIÓN: Usamos .message.content (estilo objeto)
+        return busqueda.choices[0].message.content
     except Exception as e:
         return f"⚠️ ERROR DE SISTEMA: {str(e)}"
 
 # --- INTERFAZ minimalista ---
-with gr.Blocks() as app:
-    chatbot = gr.Chatbot(label="ADIA", height=450)
+with gr.Blocks(theme=gr.themes.Soft()) as app:
+    gr.Markdown("# ADIA v1.2")
+    chatbot = gr.Chatbot(label="Chat con ADIA", height=450)
+    
     with gr.Row():
         msg = gr.Textbox(
             placeholder="Escribe algo para ADIA...",
+            show_label=False,
             scale=4
         )
         btn = gr.Button("ENVIAR", variant="primary", scale=1)
 
     limpiar = gr.Button("Reiniciar Memoria")
 
-    # Función de respuesta
+    # --- LÓGICA DE CONEXIÓN ---
     def responder(m, h):
-        if not m:
-            return "", h
-        respues
+        respuesta = adia_core(m, h)
+        h.append((m, respuesta)) # Guardamos en el historial
+        return "", h # Limpiamos el texto y actualizamos chat
+
+    # Eventos: Al dar click o dar Enter
+    msg.submit(responder, [msg, chatbot], [msg, chatbot])
+    btn.click(responder, [msg, chatbot], [msg, chatbot])
+    
+    # Botón para borrar todo
+    limpiar.click(lambda: None, None, chatbot, queue=False)
+
+if __name__ == "__main__":
+    app.launch()
