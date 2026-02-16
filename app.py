@@ -2,59 +2,42 @@ import os
 import gradio as gr
 from groq import Groq
 
-# 1. Conexión con Groq
+# Configuración del cliente de Groq
+# Recuerda poner GROQ_API_KEY en las variables de entorno de Render
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def adia_core(mensaje, historial):
-    # Definimos el mensaje de sistema
-    mensajes_para_groq = [
-        {"role": "system", "content": "Eres ADIA v1.3, experta en robótica y programación."}
-    ]
+def responder_adia(mensaje, historial):
+    instrucciones = "Eres ADIA, una IA experta en física y robótica creada por un ingeniero de 7mo grado."
+    
+    mensajes = [{"role": "system", "content": instrucciones}]
+    
+    # Añadimos el historial para que tenga memoria
+    for usuario, asistente in historial:
+        mensajes.append({"role": "user", "content": usuario})
+        mensajes.append({"role": "assistant", "content": asistente})
+    
+    mensajes.append({"role": "user", "content": mensaje})
 
-    # 2. Convertimos el historial de Gradio al formato que Groq entiende
-    # Gradio pasa el historial como una lista de listas: [[user, bot], [user, bot]]
-    if historial:
-        for chat_par in historial:
-            user_msg = chat_par[0]
-            bot_msg = chat_par[1]
-            if user_msg:
-                mensajes_para_groq.append({"role": "user", "content": str(user_msg)})
-            if bot_msg:
-                mensajes_para_groq.append({"role": "assistant", "content": str(bot_msg)})
+    # Petición a la API de Groq
+    completion = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=mensajes,
+        temperature=0.7
+    )
+    
+    return completion.choices[0].message.content
 
-    # 3. Añadimos el mensaje actual del usuario
-    mensajes_para_groq.append({"role": "user", "content": str(mensaje)})
+# Interfaz de Gradio
+demo = gr.ChatInterface(
+    fn=responder_adia,
+    title="ADIA IA",
+    theme="soft"
+)
 
-    try:
-        # 4. Llamada a Groq (Asegúrate de que el modelo sea el correcto)
-        respuesta_ia = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=mensajes_para_groq, # Aquí pasamos la lista limpia
-            temperature=0.5
-        )
-        return respuesta_ia.choices[0].message.content
-    except Exception as e:
-        return f"❌ ERROR TÉCNICO: {str(e)}"
-
-# --- INTERFAZ ---
-with gr.Blocks() as app:
-    gr.Markdown("# ADIA v1.3")
-    chatbot = gr.Chatbot(height=400)
-    msg = gr.Textbox(placeholder="Escribe aquí...")
-    btn = gr.Button("ENVIAR")
-
-    def responder(texto, chat_historial):
-        # Llamamos a la función y guardamos la respuesta
-        respuesta = adia_core(texto, chat_historial)
-        chat_historial.append((texto, respuesta))
-        return "", chat_historial
-
-    btn.click(responder, [msg, chatbot], [msg, chatbot])
-    msg.submit(responder, [msg, chatbot], [msg, chatbot])
 if __name__ == "__main__":
-    import os
-    # Render asigna un puerto dinámico en la variable PORT
+    # Configuración crucial para Render:
+    # Leemos el puerto que nos da Render o usamos el 7860 por defecto
     puerto = int(os.environ.get("PORT", 7860))
-    # 'share=False' es vital en Render para evitar conflictos de túneles SSH
-    app.launch(server_name="0.0.0.0", server_port=puerto, share=False)
-
+    
+    # server_name "0.0.0.0" permite que la web sea accesible desde fuera
+    demo.launch(server_name="0.0.0.0", server_port=puerto)
