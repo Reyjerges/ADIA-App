@@ -2,36 +2,45 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Configuración del cliente
+# 1. Configuración del Cliente
+# Render leerá la clave desde las variables de entorno
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def responder_adia(mensaje, historial):
-    instrucciones = "Eres ADIA, una IA experta en física y robótica."
+    # Definimos la personalidad de ADIA
+    instrucciones = (
+        "Eres ADIA, una inteligencia artificial experta en física y robótica. "
+        "Fuiste creada por un ingeniero de 7mo grado. Eres inteligente, "
+        "curiosa y siempre das respuestas técnicas pero fáciles de entender."
+    )
+    
+    # Preparamos la estructura de mensajes para Groq
     mensajes = [{"role": "system", "content": instrucciones}]
     
+    # 2. Formateo del Historial (Para evitar el error del segundo mensaje)
+    # Gradio pasa el historial como una lista de listas [[user, bot], [user, bot]]
     for usuario, asistente in historial:
-        mensajes.append({"role": "user", "content": usuario})
-        mensajes.append({"role": "assistant", "content": asistente})
+        if usuario:
+            mensajes.append({"role": "user", "content": usuario})
+        if asistente:
+            mensajes.append({"role": "assistant", "content": asistente})
     
+    # Añadimos el mensaje actual
     mensajes.append({"role": "user", "content": mensaje})
 
-    completion = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=mensajes,
-        temperature=0.7
-    )
-    return completion.choices[0].message.content
+    try:
+        # 3. Llamada a la API con el modelo actualizado
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=mensajes,
+            temperature=0.7,
+            max_tokens=1024
+        )
+        return completion.choices[0].message.content
+    
+    except Exception as e:
+        # Esto nos dirá el error real en el chat si algo falla
+        return f"Error de conexión: {str(e)}"
 
-# Quitamos 'theme' por ahora para evitar el TypeError
-# Si quieres diseño, Gradio lo pone automático en su versión moderna
+# 4. Interfaz de Usuario
 demo = gr.ChatInterface(
-    fn=responder_adia,
-    title="ADIA IA"
-)
-
-if __name__ == "__main__":
-    # Obtenemos el puerto de Render
-    puerto = int(os.environ.get("PORT", 7860))
-    # Lanzamos la app
-    demo.launch(server_name="0.0.0.0", server_port=puerto)
-  
