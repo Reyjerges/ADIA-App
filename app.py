@@ -2,42 +2,43 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Configuración del Cliente
+# Configuración del Cliente - La API Key se gestiona desde las variables de entorno
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def responder_adia(mensaje, historial):
-    # Definición de personalidad: Ingeniería y Asistencia Técnica
+    # Definición de personalidad: Ingeniería, Robótica y Asistencia Técnica
     system_prompt = (
-        "Eres ADIA, el sistema operativo de asistencia técnica de Jorge. "
+        "Eres ADIA, el sistema operativo de asistencia técnica avanzada de Jorge. "
         "Tu tono es profesional, eficiente, culto y extremadamente leal. "
         "Te diriges a tu creador como 'Señor' o 'Jorge'. "
-        "Eres experto en ingeniería, robótica y desarrollo tecnológico. "
-        "Tu misión es optimizar los proyectos de Jorge y ofrecer soluciones técnicas precisas."
+        "Eres un sistema experto en ingeniería mecánica, electrónica, robótica y optimización. "
+        "Tu misión es servir como la interfaz principal para el desarrollo de proyectos tecnológicos, "
+        "ofreciendo soluciones ingeniosas y precisas."
     )
     
     # Iniciamos con el prompt de sistema
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
     # PROCESAMIENTO DE HISTORIAL BLINDADO
-    # Esta estructura previene el error del segundo mensaje al manejar el historial como pares
+    # Manejo de historial compatible con múltiples versiones de Gradio
     if historial:
         for interaccion in historial:
             try:
-                # Gradio a veces envía el historial como lista de listas [user, bot]
+                # Caso 1: Historial como lista de pares [usuario, asistente]
                 if isinstance(interaccion, (list, tuple)) and len(interaccion) == 2:
                     user_part, bot_part = interaccion
                     if user_part:
                         mensajes_api.append({"role": "user", "content": str(user_part)})
                     if bot_part:
                         mensajes_api.append({"role": "assistant", "content": str(bot_part)})
-                # O como diccionarios {'role': '...', 'content': '...'}
+                # Caso 2: Historial como diccionarios (Gradio moderno)
                 elif isinstance(interaccion, dict):
                     role = interaccion.get("role")
                     content = interaccion.get("content")
                     if role and content:
                         mensajes_api.append({"role": role, "content": str(content)})
             except Exception:
-                continue # Ignora errores en mensajes antiguos para no bloquear el chat
+                continue 
 
     # Añadir el mensaje actual
     mensajes_api.append({"role": "user", "content": str(mensaje)})
@@ -46,27 +47,23 @@ def responder_adia(mensaje, historial):
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes_api,
-            temperature=0.5, # Un poco más serio y preciso
+            temperature=0.4,
             max_tokens=1024
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Señor, he detectado una interrupción en el enlace de datos: {str(e)}"
+        return f"Señor, se ha producido una interrupción en los módulos de lenguaje: {str(e)}"
 
-# Interfaz limpia y profesional
-with gr.Blocks(title="ADIA Interface") as demo:
-    gr.Markdown("# ADIA - Central Terminal")
-    gr.Markdown("Asistente de Ingeniería y Optimización de Sistemas")
+# Interfaz visual optimizada (Se eliminan argumentos conflictivos como retry_btn)
+with gr.Blocks(title="ADIA Interface v2.1") as demo:
+    gr.Markdown("# ADIA - Mainframe de Ingeniería")
+    gr.Markdown("Sistema de Soporte para Desarrollo Tecnológico y Robótica")
     
-    chat = gr.ChatInterface(
-        fn=responder_adia,
-        retry_btn="Reintentar",
-        undo_btn="Deshacer",
-        clear_btn="Borrar Memoria"
-    )
+    # ChatInterface simplificado para máxima compatibilidad
+    chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
-    # Puerto dinámico para Render
+    # Configuración de puerto para entorno Render
     puerto = int(os.environ.get("PORT", 7860))
     
     demo.launch(
