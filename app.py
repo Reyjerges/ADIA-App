@@ -3,33 +3,30 @@ import gradio as gr
 from groq import Groq
 
 # 1. Configuración del Cliente
-# Render leerá la clave desde las variables de entorno
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def responder_adia(mensaje, historial):
-    # Definimos la personalidad de ADIA
     instrucciones = (
         "Eres ADIA, una inteligencia artificial experta en física y robótica. "
         "Fuiste creada por un ingeniero de 7mo grado. Eres inteligente, "
         "curiosa y siempre das respuestas técnicas pero fáciles de entender."
     )
     
-    # Preparamos la estructura de mensajes para Groq
+    # Preparamos la estructura de mensajes
     mensajes = [{"role": "system", "content": instrucciones}]
     
-    # 2. Formateo del Historial (Para evitar el error del segundo mensaje)
-    # Gradio pasa el historial como una lista de listas [[user, bot], [user, bot]]
+    # Formateo del Historial para evitar errores en mensajes sucesivos
     for usuario, asistente in historial:
         if usuario:
             mensajes.append({"role": "user", "content": usuario})
         if asistente:
             mensajes.append({"role": "assistant", "content": asistente})
     
-    # Añadimos el mensaje actual
+    # Añadimos el mensaje actual del usuario
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
-        # 3. Llamada a la API con el modelo actualizado
+        # 2. Llamada a la API (Revisado que todos los paréntesis cierren)
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes,
@@ -39,8 +36,22 @@ def responder_adia(mensaje, historial):
         return completion.choices[0].message.content
     
     except Exception as e:
-        # Esto nos dirá el error real en el chat si algo falla
-        return f"Error de conexión: {str(e)}"
+        return f"ADIA reporta un error técnico: {str(e)}"
 
-# 4. Interfaz de Usuario
+# 3. Interfaz de Usuario de Gradio
 demo = gr.ChatInterface(
+    fn=responder_adia,
+    title="PROYECTO ADIA",
+    description="IA Experta en Física y Robótica Avanzada",
+)
+
+# 4. Lanzamiento del servidor para Render
+if __name__ == "__main__":
+    # Obtenemos el puerto de Render o usamos el 7860 por defecto
+    puerto = int(os.environ.get("PORT", 7860))
+    
+    demo.launch(
+        server_name="0.0.0.0", 
+        server_port=puerto,
+        share=False
+    )
