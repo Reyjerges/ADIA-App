@@ -6,7 +6,7 @@ from groq import Groq
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def responder_adia(mensaje, historial):
-    system_prompt = "Eres ADIA, una IA experta en física y robótica creada por un ingeniero de 7mo grado."
+    system_prompt = "Eres ADIA, una IA experta en física y robótica creada para ser una asistente y compañera."
     
     # Construimos los mensajes desde cero para que Groq no se confunda
     mensajes_redactados = [{"role": "system", "content": system_prompt}]
