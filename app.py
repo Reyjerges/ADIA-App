@@ -2,56 +2,42 @@ import os
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración del Cliente
+# Configuración del Cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def responder_adia(mensaje, historial):
-    instrucciones = (
-        "Eres ADIA, una inteligencia artificial experta en física y robótica. "
-        "Fuiste creada por un ingeniero de 7mo grado. Eres inteligente, "
-        "curiosa y siempre das respuestas técnicas pero fáciles de entender."
-    )
+    system_prompt = "Eres ADIA, una IA experta en física y robótica creada por un ingeniero de 7mo grado."
     
-    # Preparamos la estructura de mensajes
-    mensajes = [{"role": "system", "content": instrucciones}]
+    # Construimos los mensajes desde cero para que Groq no se confunda
+    mensajes_redactados = [{"role": "system", "content": system_prompt}]
     
-    # Formateo del Historial para evitar errores en mensajes sucesivos
-    for usuario, asistente in historial:
-        if usuario:
-            mensajes.append({"role": "user", "content": usuario})
-        if asistente:
-            mensajes.append({"role": "assistant", "content": asistente})
+    # Agregamos el historial solo si tiene contenido válido
+    for chat in historial:
+        if len(chat) == 2:
+            user_msg, bot_msg = chat
+            if user_msg:
+                mensajes_redactados.append({"role": "user", "content": str(user_msg)})
+            if bot_msg:
+                mensajes_redactados.append({"role": "assistant", "content": str(bot_msg)})
     
-    # Añadimos el mensaje actual del usuario
-    mensajes.append({"role": "user", "content": mensaje})
+    # Mensaje actual
+    mensajes_redactados.append({"role": "user", "content": str(mensaje)})
 
     try:
-        # 2. Llamada a la API (Revisado que todos los paréntesis cierren)
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=mensajes,
-            temperature=0.7,
-            max_tokens=1024
+            messages=mensajes_redactados,
+            temperature=0.7
         )
         return completion.choices[0].message.content
-    
     except Exception as e:
-        return f"ADIA reporta un error técnico: {str(e)}"
+        # Esto imprimirá el error real en los logs de Render para que lo veamos
+        print(f"ERROR CRÍTICO: {e}")
+        return "ADIA: Tuve un error de memoria. Intenta refrescar la página."
 
-# 3. Interfaz de Usuario de Gradio
-demo = gr.ChatInterface(
-    fn=responder_adia,
-    title="PROYECTO ADIA",
-    description="IA Experta en Física y Robótica Avanzada",
-)
+# Interfaz básica (simplificada para evitar errores de Gradio)
+demo = gr.ChatInterface(fn=responder_adia, title="ADIA v2.0")
 
-# 4. Lanzamiento del servidor para Render
 if __name__ == "__main__":
-    # Obtenemos el puerto de Render o usamos el 7860 por defecto
     puerto = int(os.environ.get("PORT", 7860))
-    
-    demo.launch(
-        server_name="0.0.0.0", 
-        server_port=puerto,
-        share=False
-    )
+    demo.launch(server_name="0.0.0.0", server_port=puerto)
