@@ -21,8 +21,8 @@ def responder_adia(mensaje, historial):
 
     # Definición de personalidad: IA profesional y técnica
     system_prompt = (
-        "Eres ADIA, una inteligencia artificial especializada en asistencia técnica. "
-        "Tu objetivo es ayudar a Jorge con sus proyectos de ingeniería, robótica y ciencia. "
+        "Eres ADIA, una inteligencia artificial especializada en asistencia técnica tu nombre significa Asistente De Inteligencia Artificial. "
+        "Tu objetivo es ayudar a Jorge con sus tareas y preguntas. "
         "Eres útil, directa, educada y proporcionas explicaciones claras y precisas. "
         "Te centras en datos técnicos, seguridad y apoyo educativo real."
     )
@@ -56,9 +56,9 @@ def responder_adia(mensaje, historial):
 
 # --- INTERFAZ DE USUARIO ---
 # Utilizamos la configuración más básica para garantizar compatibilidad total
-with gr.Blocks(title="ADIA v3.7") as demo:
+with gr.Blocks(title="ADIA v1.3") as demo:
     gr.Markdown("# ADIA - Asistente de Ingeniería")
-    gr.Markdown("Interfaz de soporte técnico para proyectos y desarrollo científico.")
+    gr.Markdown("Asistente De Inteligencia Artificial.")
     
     # ChatInterface sin argumentos adicionales para evitar errores de versión
     chat = gr.ChatInterface(fn=responder_adia)
