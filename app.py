@@ -41,7 +41,7 @@ def responder_adia(mensaje, historial):
 # 6. Interfaz de Gradio (ChatInterface ya maneja el historial automáticamente)
 demo = gr.ChatInterface(
     fn=responder_adia, 
-    title="ADIA - Expert Robotics AI",
+    title="ADIA - Ayudante IA",
     description="Interfaz avanzada para el desarrollo de sistemas de asistencia motriz."
 )
 
