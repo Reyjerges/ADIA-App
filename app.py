@@ -1,6 +1,6 @@
 # ADIA - SISTEMA DE ASISTENCIA TÉCNICA
 # Archivo: app.py
-# Función: Interfaz de IA para asistencia en proyectos de ingeniería.
+# Función: Interfaz de IA simplificada y estable para asistencia en ingeniería.
 
 import os
 import gradio as gr
@@ -24,25 +24,26 @@ def responder_adia(mensaje, historial):
         "Eres ADIA, una inteligencia artificial especializada en asistencia técnica. "
         "Tu objetivo es ayudar a Jorge con sus proyectos de ingeniería, robótica y ciencia. "
         "Eres útil, directa, educada y proporcionas explicaciones claras y precisas. "
-        "Evitas referencias a personajes de ficción y te centras en datos técnicos y apoyo real."
+        "Te centras en datos técnicos, seguridad y apoyo educativo real."
     )
     
-    # Construcción de la lista de mensajes
+    # Construcción de la lista de mensajes para la API de Groq
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # Añadir historial al contexto
+    # Manejo del historial: Gradio suele pasar el historial como una lista de listas [[user, bot], ...]
     if historial:
-        for user_msg, bot_msg in historial:
-            if user_msg:
-                mensajes_api.append({"role": "user", "content": user_msg})
-            if bot_msg:
-                mensajes_api.append({"role": "assistant", "content": bot_msg})
+        for interaccion in historial:
+            # Verificamos que la interacción sea un formato válido
+            if isinstance(interaccion, (list, tuple)) and len(interaccion) == 2:
+                u, b = interaccion
+                if u: mensajes_api.append({"role": "user", "content": str(u)})
+                if b: mensajes_api.append({"role": "assistant", "content": str(b)})
 
-    # Añadir mensaje actual
-    mensajes_api.append({"role": "user", "content": mensaje})
+    # Añadir mensaje actual del usuario
+    mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
-        # Llamada a la API de Groq
+        # Llamada a la API de Groq usando el modelo Llama 3
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes_api,
@@ -54,19 +55,16 @@ def responder_adia(mensaje, historial):
         return f"Lo siento, ocurrió un error al procesar tu solicitud: {str(e)}"
 
 # --- INTERFAZ DE USUARIO ---
-with gr.Blocks(title="ADIA v3.6") as demo:
+# Utilizamos la configuración más básica para garantizar compatibilidad total
+with gr.Blocks(title="ADIA v3.7") as demo:
     gr.Markdown("# ADIA - Asistente de Ingeniería")
-    gr.Markdown("Interfaz de comunicación para soporte técnico y desarrollo.")
+    gr.Markdown("Interfaz de soporte técnico para proyectos y desarrollo científico.")
     
-    # ChatInterface simplificado para evitar errores de argumentos inesperados
-    # Se eliminan 'retry_btn', 'undo_btn' y 'clear_btn' para usar los valores por defecto
-    chat = gr.ChatInterface(
-        fn=responder_adia,
-        type="tuples" # Asegura compatibilidad con el formato de historial [user, bot]
-    )
+    # ChatInterface sin argumentos adicionales para evitar errores de versión
+    chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
-    # Configuración de puerto para ejecución local o en servidor
+    # Configuración de puerto para ejecución local o en servidor (Render/HuggingFace)
     server_port = int(os.environ.get("PORT", 7860))
     
     print(f"Iniciando ADIA en el puerto {server_port}...")
