@@ -17,14 +17,15 @@ def responder_adia(mensaje, historial):
         "Eres técnica, eficiente y siempre llamas a Jorge por su nombre."
     )
     
-    # 2. Construcción manual de la memoria
+    # 2. Construcción manual de la memoria (CORREGIDO)
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # Gradio en versiones anteriores pasa el historial como lista de listas [[u, b], [u, b]]
-    for h in historial:
-        if isinstance(h, (list, tuple)) and len(h) == 2:
-            mensajes_api.append({"role": "user", "content": str(h[0])})
-            mensajes_api.append({"role": "assistant", "content": str(h[1])})
+    # Procesamos el historial para que ADIA tenga conciencia de la charla
+    for usuario, bot in historial:
+        if usuario:
+            mensajes_api.append({"role": "user", "content": str(usuario)})
+        if bot:
+            mensajes_api.append({"role": "assistant", "content": str(bot)})
 
     # Añadir el mensaje actual
     mensajes_api.append({"role": "user", "content": str(mensaje)})
@@ -36,6 +37,7 @@ def responder_adia(mensaje, historial):
             temperature=0.7,
             max_tokens=1024
         )
+        # Acceso correcto al primer resultado
         return completion.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
@@ -44,7 +46,7 @@ def responder_adia(mensaje, historial):
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🤖 ADIA - IA")
     
-    # Eliminamos type="messages" para evitar el TypeError
+    # ChatInterface gestiona el historial automáticamente hacia responder_adia
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
