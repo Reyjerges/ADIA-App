@@ -13,58 +13,40 @@ def responder_adia(mensaje, historial):
     # Personalidad de Ingeniería Robótica (Modo Jarvis/Stark)
     system_prompt = (
         "Eres ADIA, el sistema operativo de ingeniería robótica de Jorge. "
-        "Tu objetivo es asistir en cálculos cinemáticos, programación de microcontroladores y diseño mecánico. "
-        "Eres técnica, eficiente y siempre llamas a Jorge por su nombre. "
-        "Si Jorge te pide ayuda con un proyecto, ofreces soluciones prácticas con materiales disponibles."
+        "Tu objetivo es asistir en bio-hacking, reflejos aumentados y diseño técnico. "
+        "Eres técnica, eficiente y siempre llamas a Jorge por su nombre."
     )
     
-    # 2. Construcción de mensajes con limpieza de metadatos (Evita Error 400)
+    # 2. Construcción manual de la memoria
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    for interaccion in historial:
-        # Extraemos solo el texto para que Groq no de error
-        if isinstance(interaccion, dict):
-            role = interaccion.get("role")
-            content = interaccion.get("content")
-            if role and content:
-                mensajes_api.append({"role": role, "content": str(content)})
-        else:
-            # Soporte para formato de lista antiguo de Gradio
-            u, b = interaccion
-            if u: mensajes_api.append({"role": "user", "content": str(u)})
-            if b: mensajes_api.append({"role": "assistant", "content": str(b)})
+    # Gradio en versiones anteriores pasa el historial como lista de listas [[u, b], [u, b]]
+    for h in historial:
+        if isinstance(h, (list, tuple)) and len(h) == 2:
+            mensajes_api.append({"role": "user", "content": str(h[0])})
+            mensajes_api.append({"role": "assistant", "content": str(h[1])})
 
-    # Añadir el mensaje actual del usuario
+    # Añadir el mensaje actual
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
-        # 3. Llamada a la API de Groq
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes_api,
             temperature=0.7,
-            max_tokens=2048
+            max_tokens=1024
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"⚠️ Error en los propulsores (API): {str(e)}"
+        return f"⚠️ Error técnico: {str(e)}"
 
-# --- INTERFAZ DE USUARIO ---
+# --- INTERFAZ SIN EL ARGUMENTO 'TYPE' ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 ADIA - Sistema de Ingeniería Robótica")
-    gr.Markdown("Bienvenido, Jorge. Sistema listo para análisis técnico.")
+    gr.Markdown("# 🤖 ADIA - Bio-Ingeniería")
     
-    chat = gr.ChatInterface(
-        fn=responder_adia,
-        type="messages", # Optimizado para las versiones más nuevas de Gradio
-        examples=["ADIA, calcula el torque de un motor", "Código para ESP32", "Estado del sistema"]
-    )
+    # Eliminamos type="messages" para evitar el TypeError
+    chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
-    # Configuración obligatoria para Render
     server_port = int(os.environ.get("PORT", 7860))
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=server_port,
-        share=False
-    )
+    demo.launch(server_name="0.0.0.0", server_port=server_port)
