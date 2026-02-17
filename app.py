@@ -56,7 +56,7 @@ def responder_adia(mensaje, historial):
 
 # --- INTERFAZ ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 ADIA - Sistema Stark")
+    gr.Markdown("# 🤖 ADIA - IA")
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
