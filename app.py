@@ -10,31 +10,35 @@ def responder_adia(mensaje, historial):
     if not api_key:
         return "Error: No configuraste la variable GROQ_API_KEY en Render."
 
-    # Personalidad Stark/Compañera
     system_prompt = (
         "Eres ADIA, la ayudante y compañera de Jorge. "
         "Tu objetivo es asistir en tareas y preguntas. "
         "Eres técnica, eficiente y siempre llamas a Jorge por su nombre."
     )
     
-    # 2. Construcción de memoria con LIMPIEZA de metadatos
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # Este bucle limpia la basura que Gradio envía y que Groq rechaza
+    # 2. LIMPIEZA DE MEMORIA (Extrayendo solo el texto puro)
     for entrada in historial:
         if isinstance(entrada, dict):
-            # Formato nuevo de Gradio: extraemos solo texto
             rol = entrada.get("role")
             contenido = entrada.get("content")
+            # Si el contenido es una lista/dict (como el error que viste), extraemos solo el texto
+            if isinstance(contenido, list) and len(contenido) > 0:
+                contenido = contenido[0].get("text", str(contenido))
+            elif isinstance(contenido, dict):
+                contenido = contenido.get("text", str(contenido))
+                
             if rol and contenido:
                 mensajes_api.append({"role": rol, "content": str(contenido)})
         elif isinstance(entrada, (list, tuple)) and len(entrada) == 2:
-            # Formato antiguo: [usuario, bot]
             u, b = entrada
+            # Limpieza extra para el formato de lista antiguo
+            if isinstance(u, dict): u = u.get("text", str(u))
+            if isinstance(b, dict): b = b.get("text", str(b))
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
 
-    # Añadir el mensaje actual
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
@@ -44,24 +48,17 @@ def responder_adia(mensaje, historial):
             temperature=0.7,
             max_tokens=1024
         )
-        return completion.choices[0].message.content
+        # 3. EXTRAER TEXTO LIMPIO DE LA RESPUESTA
+        respuesta = completion.choices[0].message.content
+        return respuesta
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
 # --- INTERFAZ ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 ADIA - Sistema de Inteligencia Artificial")
+    gr.Markdown("# 🤖 ADIA - Sistema Stark")
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
-    # CONFIGURACIÓN DE PUERTO PARA RENDER
-    # Render asigna dinámicamente un puerto, por eso usamos os.environ.get
     server_port = int(os.environ.get("PORT", 7860))
-    
-    print(f"Desplegando ADIA en el puerto: {server_port}")
-    
-    demo.launch(
-        server_name="0.0.0.0", 
-        server_port=server_port,
-        share=False
-    )
+    demo.launch(server_name="0.0.0.0", server_port=server_port)
