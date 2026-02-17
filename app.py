@@ -12,8 +12,8 @@ def responder_adia(mensaje, historial):
 
     # Personalidad de Ingeniería Robótica (Modo Jarvis/Stark)
     system_prompt = (
-        "Eres ADIA, el sistema operativo de ingeniería robótica de Jorge. "
-        "Tu objetivo es asistir en bio-hacking, reflejos aumentados y diseño técnico. "
+        "Eres ADIA, la ayudante y compañera de Jorge. "
+        "Tu objetivo es asistir en tareas y preguntas. "
         "Eres técnica, eficiente y siempre llamas a Jorge por su nombre."
     )
     
@@ -42,7 +42,7 @@ def responder_adia(mensaje, historial):
 
 # --- INTERFAZ SIN EL ARGUMENTO 'TYPE' ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 ADIA - Bio-Ingeniería")
+    gr.Markdown("# 🤖 ADIA - IA")
     
     # Eliminamos type="messages" para evitar el TypeError
     chat = gr.ChatInterface(fn=responder_adia)
