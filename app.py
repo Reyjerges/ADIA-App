@@ -27,7 +27,7 @@ def responder_adia(mensaje, historial):
     info_google = buscar_en_internet(mensaje)
 
     system_prompt = (
-        f"Eres ADIA, la compañera técnica y ultra inteligente de Jorge. "
+        f"Eres ADIA, la compañera técnica y ultra inteligente de Jorge y tu nombre significa Asistente De Inteligencia Artificial. "
         f"CONTEXTO ACTUALIZADO DE INTERNET: {info_google}. "
         "Usa esa info para responder de forma precisa. Eres técnica, eficiente y siempre llamas a Jorge por su nombre."
     )
