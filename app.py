@@ -43,10 +43,10 @@ def responder_adia(mensaje, historial):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=mensajes_api,
-            temperature=0.7,
-            max_tokens=1024
+            temperature=0.6,
+            max_tokens=2048
         )
         # 3. EXTRAER TEXTO LIMPIO DE LA RESPUESTA
         respuesta = completion.choices[0].message.content
