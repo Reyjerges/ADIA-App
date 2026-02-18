@@ -29,22 +29,26 @@ def responder_adia(mensaje, historial):
     system_prompt = (
         f"Eres ADIA, la ayudante y compañera de Jorge. "
         f"Contexto de internet: {info_google}. "
-        "Usa la información de internet solo si Jorge pregunta algo de actualidad. "
-        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre."
+        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre. "
+        "Usa el historial para mantener el hilo de la conversación."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # 2. LIMPIEZA TOTAL DE MEMORIA (Quitamos el 'metadata' que causa el error)
+    # 2. LIMPIEZA PROFUNDA DE MEMORIA (Para que ADIA entienda el historial)
     for entrada in historial:
         if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
             u, b = entrada
+            # Si el mensaje viene como dict {'text': '...'}, extraemos solo el texto
+            if isinstance(u, dict): u = u.get("text", "")
+            if isinstance(b, dict): b = b.get("text", "")
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
         elif isinstance(entrada, dict):
-            # Aquí está el truco: Solo agarramos 'role' y 'content', ignoramos lo demás
             rol = entrada.get("role")
             contenido = entrada.get("content")
+            # Limpiamos si el contenido es un dict o lista
+            if isinstance(contenido, dict): contenido = contenido.get("text", "")
             if rol and contenido:
                 mensajes_api.append({"role": rol, "content": str(contenido)})
 
@@ -56,7 +60,9 @@ def responder_adia(mensaje, historial):
             messages=mensajes_api,
             temperature=0.7
         )
-        return completion.choices[0].message.content
+        # 3. EXTRAER SOLO EL TEXTO DE LA RESPUESTA
+        respuesta = completion.choices[0].message.content
+        return respuesta
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
