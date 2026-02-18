@@ -3,7 +3,7 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. CONFIGURACIÓN
+# 1. LLAVES
 api_key = os.environ.get("GROQ_API_KEY", "")
 tavily_key = os.environ.get("TAVILY_API_KEY", "")
 
@@ -22,33 +22,29 @@ def buscar_en_internet(consulta):
 
 def responder_adia(mensaje, historial):
     if not api_key:
-        return "Error: No configuraste la variable GROQ_API_KEY en Render."
+        return "Error: No configuraste GROQ_API_KEY."
 
     info_google = buscar_en_internet(mensaje)
 
     system_prompt = (
-        f"Eres ADIA, la ayudante y compañera de Jorge. "
-        f"Contexto de internet: {info_google}. "
-        "INSTRUCCIÓN: Usa la info de internet solo si es relevante. "
-        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre. "
-        "IMPORTANTE: Revisa el historial de mensajes que te envío para no olvidar nada."
+        f"Eres ADIA, la compañera de Jorge. Contexto: {info_google}. "
+        "Usa el historial para recordar lo que hablaron. Sé técnica y amable. "
+        "Siempre llama a Jorge por su nombre."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # --- LA SOLUCIÓN PARA LA MEMORIA ---
-    # Gradio 5.x ahora usa una lista de diccionarios por defecto
-    for item in historial:
-        if isinstance(item, dict):
-            # Formato nuevo: {'role': 'user', 'content': 'hola'}
-            mensajes_api.append(item)
-        elif isinstance(item, (list, tuple)) and len(item) == 2:
-            # Formato viejo: ['hola', 'hola Jorge']
-            u, b = item
+    # 2. MEMORIA MANUAL (Funciona en todas las versiones de Gradio)
+    for entrada in historial:
+        # Si Gradio envía el historial como [usuario, bot]
+        if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
+            u, b = entrada
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
+        # Si Gradio envía el historial como {'role': '...', 'content': '...'}
+        elif isinstance(entrada, dict):
+            mensajes_api.append(entrada)
 
-    # Añadimos el mensaje actual
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
@@ -61,11 +57,11 @@ def responder_adia(mensaje, historial):
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
-# --- INTERFAZ ---
+# --- INTERFAZ SIN 'TYPE' ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🤖 ADIA")
-    # type="messages" es obligatorio en las versiones nuevas para que la memoria funcione bien
-    chat = gr.ChatInterface(fn=responder_adia, type="messages")
+    # Quitamos el 'type' para que no explote Render
+    chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
     server_port = int(os.environ.get("PORT", 7860))
