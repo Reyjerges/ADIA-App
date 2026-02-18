@@ -3,7 +3,7 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. LLAVES
+# 1. Configuración
 api_key = os.environ.get("GROQ_API_KEY", "")
 tavily_key = os.environ.get("TAVILY_API_KEY", "")
 
@@ -27,23 +27,26 @@ def responder_adia(mensaje, historial):
     info_google = buscar_en_internet(mensaje)
 
     system_prompt = (
-        f"Eres ADIA, la compañera de Jorge. Contexto: {info_google}. "
-        "Usa el historial para recordar lo que hablaron. Sé técnica y amable. "
-        "Siempre llama a Jorge por su nombre."
+        f"Eres ADIA, la ayudante y compañera de Jorge. "
+        f"Contexto de internet: {info_google}. "
+        "Usa la información de internet solo si Jorge pregunta algo de actualidad. "
+        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # 2. MEMORIA MANUAL (Funciona en todas las versiones de Gradio)
+    # 2. LIMPIEZA TOTAL DE MEMORIA (Quitamos el 'metadata' que causa el error)
     for entrada in historial:
-        # Si Gradio envía el historial como [usuario, bot]
         if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
             u, b = entrada
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
-        # Si Gradio envía el historial como {'role': '...', 'content': '...'}
         elif isinstance(entrada, dict):
-            mensajes_api.append(entrada)
+            # Aquí está el truco: Solo agarramos 'role' y 'content', ignoramos lo demás
+            rol = entrada.get("role")
+            contenido = entrada.get("content")
+            if rol and contenido:
+                mensajes_api.append({"role": rol, "content": str(contenido)})
 
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
@@ -57,10 +60,9 @@ def responder_adia(mensaje, historial):
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
-# --- INTERFAZ SIN 'TYPE' ---
+# --- INTERFAZ ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🤖 ADIA")
-    # Quitamos el 'type' para que no explote Render
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
