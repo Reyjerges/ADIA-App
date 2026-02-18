@@ -3,54 +3,40 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. Configuración
+# 1. Configuración del Cliente
 api_key = os.environ.get("GROQ_API_KEY", "")
 tavily_key = os.environ.get("TAVILY_API_KEY", "")
 
 client = Groq(api_key=api_key)
 tavily = TavilyClient(api_key=tavily_key) if (tavily_key and tavily_key.strip()) else None
 
-def buscar_en_internet(consulta):
-    if not tavily: return ""
-    palabras_chat = ["hola", "que tal", "como estas", "quien eres", "que?", "que", "ok", "gracias"]
-    if consulta.lower().strip() in palabras_chat or len(consulta) < 4:
-        return ""
-    try:
-        return tavily.get_search_context(query=consulta, search_depth="basic")
-    except:
-        return ""
-
 def responder_adia(mensaje, historial):
     if not api_key:
-        return "Error: No configuraste GROQ_API_KEY."
+        return "Error: No configuraste la variable GROQ_API_KEY en Render."
 
-    info_google = buscar_en_internet(mensaje)
-
+    # --- LÓGICA DE MEMORIA Y LIMPIEZA ---
     system_prompt = (
-        f"Eres ADIA, la ayudante y compañera de Jorge. "
-        f"Contexto de internet: {info_google}. "
-        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre. "
-        "Usa el historial para mantener el hilo de la conversación."
+        "Eres ADIA, la ayudante y compañera de Jorge. "
+        "Eres técnica, eficiente y siempre llamas a Jorge por su nombre."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # 2. LIMPIEZA PROFUNDA DE MEMORIA (Para que ADIA entienda el historial)
+    # Limpiamos el historial para que ADIA entienda solo el texto
     for entrada in historial:
+        u, b = None, None
         if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
             u, b = entrada
-            # Si el mensaje viene como dict {'text': '...'}, extraemos solo el texto
-            if isinstance(u, dict): u = u.get("text", "")
-            if isinstance(b, dict): b = b.get("text", "")
-            if u: mensajes_api.append({"role": "user", "content": str(u)})
-            if b: mensajes_api.append({"role": "assistant", "content": str(b)})
         elif isinstance(entrada, dict):
-            rol = entrada.get("role")
-            contenido = entrada.get("content")
-            # Limpiamos si el contenido es un dict o lista
-            if isinstance(contenido, dict): contenido = contenido.get("text", "")
-            if rol and contenido:
-                mensajes_api.append({"role": rol, "content": str(contenido)})
+            u = entrada.get("user")
+            b = entrada.get("assistant")
+            
+        # Si el mensaje viene como {'text': '...'}, extraemos solo el texto
+        if isinstance(u, dict): u = u.get("text", str(u))
+        if isinstance(b, dict): b = b.get("text", str(b))
+        
+        if u: mensajes_api.append({"role": "user", "content": str(u)})
+        if b: mensajes_api.append({"role": "assistant", "content": str(b)})
 
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
@@ -60,7 +46,7 @@ def responder_adia(mensaje, historial):
             messages=mensajes_api,
             temperature=0.7
         )
-        # 3. EXTRAER SOLO EL TEXTO DE LA RESPUESTA
+        # EXTRAEMOS SOLO EL CONTENIDO (Texto limpio)
         respuesta = completion.choices[0].message.content
         return respuesta
     except Exception as e:
