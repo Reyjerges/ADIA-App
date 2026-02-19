@@ -3,7 +3,7 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. Configuración de Clientes
+# 1. Configuración del Cliente
 api_key = os.environ.get("GROQ_API_KEY", "")
 tavily_key = os.environ.get("TAVILY_API_KEY", "")
 
@@ -28,28 +28,37 @@ def responder_adia(mensaje, historial):
 
     system_prompt = (
         f"Eres ADIA, la compañera de Jorge. Contexto: {info_google}. "
-        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre."
+        "Usa el historial para recordar lo que hablaron. Sé técnica y amable. "
+        "Siempre llama a Jorge por su nombre."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
+    # 2. MEMORIA REFORZADA (Convirtiendo todo a texto puro)
     for entrada in historial:
+        # Si es una lista o tupla [usuario, asistente]
         if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
             u, b = entrada
+            # Extraemos el texto si vienen como diccionarios {'text': '...', ...}
             if isinstance(u, dict): u = u.get("text", str(u))
             if isinstance(b, dict): b = b.get("text", str(b))
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
+        # Si es el formato de diccionario directo
         elif isinstance(entrada, dict):
-            rol, cont = entrada.get("role"), entrada.get("content")
-            if isinstance(cont, dict): cont = cont.get("text", str(cont))
-            if rol and cont: mensajes_api.append({"role": "rol", "content": str(cont)})
+            rol = entrada.get("role")
+            cont = entrada.get("content")
+            if isinstance(cont, (dict, list)): # Limpieza extra
+                cont = str(cont.get("text")) if isinstance(cont, dict) else str(cont)
+            if rol and cont:
+                mensajes_api.append({"role": rol, "content": str(cont)})
 
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            # Cambia el 70b por el 8b-instant
+model="llama-3.1-8b-instant",
             messages=mensajes_api,
             temperature=0.7
         )
@@ -57,16 +66,9 @@ def responder_adia(mensaje, historial):
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
-# --- AQUÍ ESTÁ EL TRUCO PARA CHROME ---
-head_html = """
-<title>ADIA</title>
-<meta name="apple-mobile-web-app-title" content="ADIA">
-<meta name="application-name" content="ADIA">
-"""
-
-with gr.Blocks(theme=gr.themes.Soft(), title="ADIA", head=head_html) as demo:
+# --- INTERFAZ ---
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🤖 ADIA")
-    gr.Markdown("### Sistema de Inteligencia Activo | Usuario: Jorge")
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
