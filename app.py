@@ -3,7 +3,7 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. Configuración del Cliente
+# 1. Configuración de Clientes
 api_key = os.environ.get("GROQ_API_KEY", "")
 tavily_key = os.environ.get("TAVILY_API_KEY", "")
 
@@ -27,34 +27,23 @@ def responder_adia(mensaje, historial):
     info_google = buscar_en_internet(mensaje)
 
     system_prompt = (
-        f"Eres ADIA, la ayudante y compañera de Jorge. "
-        f"Contexto internet: {info_google}. "
-        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre. "
-        "Usa el historial para mantener el hilo de la conversación."
+        f"Eres ADIA, la compañera de Jorge. Contexto: {info_google}. "
+        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # 2. LIMPIEZA DE MEMORIA (Extrayendo solo el texto puro - Versión Robusta)
     for entrada in historial:
-        if isinstance(entrada, dict):
-            rol = entrada.get("role")
-            contenido = entrada.get("content")
-            # Limpieza para el error del formato {'text': '...', 'type': 'text'}
-            if isinstance(contenido, list) and len(contenido) > 0:
-                contenido = contenido[0].get("text", str(contenido))
-            elif isinstance(contenido, dict):
-                contenido = contenido.get("text", str(contenido))
-                
-            if rol and contenido:
-                mensajes_api.append({"role": rol, "content": str(contenido)})
-        elif isinstance(entrada, (list, tuple)) and len(entrada) == 2:
+        if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
             u, b = entrada
-            # Limpieza extra para el formato de lista antiguo
             if isinstance(u, dict): u = u.get("text", str(u))
             if isinstance(b, dict): b = b.get("text", str(b))
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
+        elif isinstance(entrada, dict):
+            rol, cont = entrada.get("role"), entrada.get("content")
+            if isinstance(cont, dict): cont = cont.get("text", str(cont))
+            if rol and cont: mensajes_api.append({"role": "rol", "content": str(cont)})
 
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
@@ -62,18 +51,22 @@ def responder_adia(mensaje, historial):
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes_api,
-            temperature=0.7,
-            max_tokens=2048
+            temperature=0.7
         )
-        # 3. EXTRAER TEXTO LIMPIO
-        respuesta = completion.choices[0].message.content
-        return respuesta
+        return completion.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
-# --- INTERFAZ ---
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+# --- AQUÍ ESTÁ EL TRUCO PARA CHROME ---
+head_html = """
+<title>ADIA</title>
+<meta name="apple-mobile-web-app-title" content="ADIA">
+<meta name="application-name" content="ADIA">
+"""
+
+with gr.Blocks(theme=gr.themes.Soft(), title="ADIA", head=head_html) as demo:
     gr.Markdown("# 🤖 ADIA")
+    gr.Markdown("### Sistema de Inteligencia Activo | Usuario: Jorge")
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
