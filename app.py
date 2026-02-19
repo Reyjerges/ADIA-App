@@ -3,7 +3,7 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. Configuración
+# 1. Configuración de Clientes
 api_key = os.environ.get("GROQ_API_KEY", "")
 tavily_key = os.environ.get("TAVILY_API_KEY", "")
 
@@ -16,62 +16,59 @@ def buscar_en_internet(consulta):
     if consulta.lower().strip() in palabras_chat or len(consulta) < 4:
         return ""
     try:
-        return tavily.get_search_context(query=consulta, search_depth="basic")
+        contexto = tavily.get_search_context(query=consulta, search_depth="basic")
+        return contexto
     except:
         return ""
 
 def responder_adia(mensaje, historial):
     if not api_key:
-        return "Error: No configuraste GROQ_API_KEY."
+        return "Error: No configuraste la variable GROQ_API_KEY en Render."
 
+    # ADIA investiga en Google
     info_google = buscar_en_internet(mensaje)
 
     system_prompt = (
-        f"Eres ADIA, la compañera de Jorge. Contexto: {info_google}. "
-        "Eres técnica, eficiente y amable. Siempre llamas a Jorge por su nombre."
+        f"Eres ADIA, la compañera de Jorge. Contexto de internet: {info_google}. "
+        "Eres técnica, eficiente, amable y siempre llamas a Jorge por su nombre. "
+        "Usa el historial para mantener el hilo de la conversación y no olvidar nada."
     )
     
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # Memoria Limpia
+    # 2. MEMORIA CORREGIDA (Extracción de texto puro)
     for entrada in historial:
         if isinstance(entrada, (list, tuple)) and len(entrada) == 2:
             u, b = entrada
+            # Si vienen como diccionarios {'text': '...'}, sacamos solo el texto
             if isinstance(u, dict): u = u.get("text", str(u))
             if isinstance(b, dict): b = b.get("text", str(b))
             if u: mensajes_api.append({"role": "user", "content": str(u)})
             if b: mensajes_api.append({"role": "assistant", "content": str(b)})
         elif isinstance(entrada, dict):
-            rol, cont = entrada.get("role"), entrada.get("content")
+            rol = entrada.get("role")
+            cont = entrada.get("content")
             if isinstance(cont, dict): cont = cont.get("text", str(cont))
-            if rol and cont: mensajes_api.append({"role": rol, "content": str(cont)})
+            if rol and cont:
+                mensajes_api.append({"role": rol, "content": str(cont)})
 
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
-        # MODELO 8B para saltar el bloqueo de 46 min
+        # Usamos el modelo 8B para que funcione YA mismo sin bloqueos
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=mensajes_api,
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=2048
         )
         return completion.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error técnico: {str(e)}"
 
-# --- TRUCO DE NOMBRE PARA CHROME ---
-head_html = """
-<script>
-    document.title = "ADIA";
-    window.onload = function() {
-        document.title = "ADIA";
-    };
-</script>
-"""
-
-with gr.Blocks(theme=gr.themes.Soft(), title="ADIA", head=head_html) as demo:
+# --- INTERFAZ ---
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🤖 ADIA")
-    gr.Markdown("### Sistema de Inteligencia Activo | Usuario: Jorge")
     chat = gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
