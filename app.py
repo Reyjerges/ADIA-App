@@ -60,7 +60,7 @@ def responder_adia(mensaje, historial):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=mensajes_api,
             temperature=0.7,
             max_tokens=2048
