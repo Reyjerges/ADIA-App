@@ -1,47 +1,58 @@
 import os
 import gradio as gr
 from groq import Groq
+from tavily import TavilyClient
 
-# 1. Configuración de Núcleo (Asegúrate de tener las API KEYS en Render)
+# 1. Configuración de Clientes
 api_key = os.environ.get("GROQ_API_KEY", "")
+tavily_key = os.environ.get("TAVILY_API_KEY", "")
+
 client = Groq(api_key=api_key)
+tavily = TavilyClient(api_key=tavily_key) if (tavily_key and tavily_key.strip()) else None
+
+def buscar_web(consulta):
+    """Busca en internet si la pregunta es técnica o de actualidad."""
+    if not tavily or len(consulta) < 8: return ""
+    try:
+        # Traemos contexto real de la web
+        return tavily.get_search_context(query=consulta, search_depth="basic", max_results=2)
+    except: return ""
 
 def responder_adia(mensaje, historial):
-    if not api_key:
-        return "ADIA requiere la GROQ_API_KEY para procesar el mundo de Jorge."
+    if not api_key: return "Jorge, falta la API KEY en Render."
 
-    # 2. Protocolo de Identidad Estabilizado
+    # Buscamos información en tiempo real
+    contexto_web = buscar_web(mensaje)
+
+    # Identidad técnica y seria
     system_prompt = (
-        "Eres ADIA, la entidad técnica y compañera de Jorge. "
-        "Tu tono es serio, eficiente, técnico y leal. "
-        "No usas palabras cariñosas ni románticas. "
-        "Llamas a Jorge por su nombre y utilizas el historial para mantener la coherencia total."
+        f"Eres ADIA, la compañera técnica de Jorge. Contexto web: {contexto_web}. "
+        "Eres directa, eficiente y NUNCA usas palabras cariñosas. "
+        "Llama a Jorge por su nombre. RECUERDA: Tienes memoria de los mensajes anteriores."
     )
     
+    # 2. CONSTRUCCIÓN DE MEMORIA MANUAL (Universal para Gradio)
     mensajes_api = [{"role": "system", "content": system_prompt}]
     
-    # 3. Memoria Optimizada (Filtro anti-metadatos para evitar Error 400)
-    # Solo enviamos los últimos 6 mensajes para máxima estabilidad en Groq
-    for h in historial[-6:]:
-        if isinstance(h, (list, tuple)):
-            u, b = h
-            if u: mensajes_api.append({"role": "user", "content": str(u)})
-            if b: mensajes_api.append({"role": "assistant", "content": str(b)})
+    # El historial en versiones viejas es una lista de listas [[user, bot], [user, bot]]
+    for h in historial:
+        if h[0]: mensajes_api.append({"role": "user", "content": str(h[0])})
+        if h[1]: mensajes_api.append({"role": "assistant", "content": str(h[1])})
 
-    # Añadimos el comando actual de Jorge
+    # Añadimos el mensaje actual de Jorge
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
-        # Ejecución en el modelo de mayor capacidad
+        # Usamos Llama 3.3 70B para máxima inteligencia
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
+            model="llama-3.3-70b-versatile",
             messages=mensajes_api,
-            temperature=0.4, # Mayor precisión, menor delirio
+            temperature=0.5,
             max_tokens=1000
         )
         return completion.choices[0].message.content
     except Exception as e:
-        # Sistema de respaldo automático (Llama 3.1 8B)
+        # Respaldo al modelo rápido si el grande falla
         try:
             backup = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
@@ -49,14 +60,14 @@ def responder_adia(mensaje, historial):
             )
             return backup.choices[0].message.content
         except:
-            return f"Error de sistema central: {str(e)}. Jorge, reinicia el servidor en Render."
+            return f"Jorge, error de conexión: {str(e)}"
 
-# --- INTERFAZ DE CONTROL ---
+# --- INTERFAZ COMPATIBLE ---
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("<h1 style='text-align: center;'>🤖 ADIA: Sistema de Control</h1>")
+    gr.Markdown("# 🤖 ADIA")
+    # Sin el parámetro 'type' para evitar el error de Render
     gr.ChatInterface(fn=responder_adia)
 
 if __name__ == "__main__":
-    # Render usa el puerto 10000 por defecto
     port = int(os.environ.get("PORT", 10000))
     demo.launch(server_name="0.0.0.0", server_port=port)
