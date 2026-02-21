@@ -1,54 +1,55 @@
-import os
+\import os
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración de Poder
+# 1. Configuración Limpia
 api_key = os.environ.get("GROQ_API_KEY", "")
 client = Groq(api_key=api_key)
 
 def responder_adia(mensaje, historial):
-    if not api_key:
-        return "Jorge, falta la clave API en Render."
+    if not api_key: return "Jorge, falta la API KEY."
 
-    # Identidad básica y directa
-    mensajes_api = [{"role": "system", "content": "Eres ADIA, la compañera de Jorge. Hablas de forma natural y directa. Siempre llamas a Jorge por su nombre."}]
+    # PROMPT DE HIERRO: Instrucciones estrictas para que no hable raro
+    system_prompt = (
+        "Eres ADIA, la compañera técnica de Jorge. Tu tono es profesional, "
+        "directo y eficiente. NUNCA uses palabras cariñosas ni románticas. "
+        "Llama a Jorge por su nombre. Tu objetivo es ayudarlo a programar y charlar con lógica."
+    )
     
-    # 2. LIMPIEZA DE METADATOS (Para evitar el error 400)
-    for h in historial[-5:]:
-        # Extraemos solo el texto, ignorando diccionarios de metadatos
-        user_text = h[0] if isinstance(h[0], str) else h[0].get("text", "") if isinstance(h[0], dict) else ""
-        bot_text = h[1] if isinstance(h[1], str) else h[1].get("text", "") if isinstance(h[1], dict) else ""
+    mensajes_api = [{"role": "system", "content": system_prompt}]
+    
+    # 2. FILTRO ANTI-ERRORES: Limpiamos el historial de cualquier metadato de Gradio
+    for h in historial[-4:]:
+        # Gradio 5 puede enviar listas [user, bot] o diccionarios
+        user_content = ""
+        bot_content = ""
         
-        if user_text:
-            mensajes_api.append({"role": "user", "content": str(user_text)})
-        if bot_text:
-            mensajes_api.append({"role": "assistant", "content": str(bot_text)})
+        if isinstance(h, (list, tuple)):
+            user_content = str(h[0]) if h[0] else ""
+            bot_content = str(h[1]) if h[1] else ""
+        elif isinstance(h, dict):
+            user_content = str(h.get("content", ""))
+            
+        if user_content: mensajes_api.append({"role": "user", "content": user_content})
+        if bot_content: mensajes_api.append({"role": "assistant", "content": bot_content})
 
-    # Mensaje actual (solo texto)
+    # Mensaje actual limpio
     mensajes_api.append({"role": "user", "content": str(mensaje)})
 
     try:
-        # Mixtral es el más estable para evitar errores de cuota
+        # Usamos Mixtral para que no se bloquee como el 70B
         completion = client.chat.completions.create(
             model="mixtral-8x7b-32768", 
             messages=mensajes_api,
-            temperature=0.7,
-            max_tokens=1000
+            temperature=0.5, # Bajamos la temperatura para que sea más seria y no invente cosas
+            max_tokens=800
         )
         return completion.choices[0].message.content
     except Exception as e:
-        # Respaldo rápido
-        try:
-            backup = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=mensajes_api
-            )
-            return backup.choices[0].message.content
-        except:
-            return f"Jorge, hubo un problema: {str(e)}"
+        return f"Jorge, el sistema dio un error técnico: {str(e)}"
 
 # --- INTERFAZ ---
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+with gr.Blocks(theme=gr.themes.Default()) as demo:
     gr.Markdown("# 🤖 ADIA")
     gr.ChatInterface(fn=responder_adia)
 
