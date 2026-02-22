@@ -2,41 +2,38 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Configuración del Cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 def adia_chat(mensaje, historial):
-    # Personalidad: Inteligencia Brutal
+    # 1. El System Prompt siempre es la base
     mensajes_ia = [
-        {"role": "system", "content": "Eres ADIA. Una inteligencia de alto nivel, directa, analítica y sin rodeos. Tu objetivo es resolver lo que Jorge solicite con máxima eficiencia lógica."}
+        {"role": "system", "content": "Eres ADIA. Inteligencia de alto nivel. Tienes memoria absoluta de esta conversación con Jorge. Sé directa y brutalmente eficiente."}
     ]
     
-    # Procesamiento seguro del historial para evitar ValueError
-    if historial:
-        for interaccion in historial:
-            if len(interaccion) == 2:
-                user_msg, bot_msg = interaccion
-                mensajes_ia.append({"role": "user", "content": user_msg})
-                mensajes_ia.append({"role": "assistant", "content": bot_msg})
+    # 2. Inyectamos TODO el historial previo en el contexto
+    # Gradio pasa el historial como una lista de listas [[user, bot], [user, bot]]
+    for interaccion in historial:
+        mensajes_ia.append({"role": "user", "content": interaccion[0]})
+        mensajes_ia.append({"role": "assistant", "content": interaccion[1]})
     
-    # Mensaje actual
+    # 3. Añadimos el mensaje que acabas de escribir
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
         completion = client.chat.completions.create(
             messages=mensajes_ia,
             model="llama-3.3-70b-versatile",
-            temperature=0.4
+            temperature=0.5 # Subimos un poco para que sea más fluida en la conversación
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error de memoria: {str(e)}"
 
-# Interfaz simplificada
+# Usamos ChatInterface que maneja el historial automáticamente por nosotros
 demo = gr.ChatInterface(
     fn=adia_chat, 
     title="ADIA",
-    description="Inteligencia pura."
+    description="Memoria Activa - Inteligencia Superior"
 )
 
 if __name__ == "__main__":
