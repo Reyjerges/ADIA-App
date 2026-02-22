@@ -14,7 +14,7 @@ def adia_logic(mensaje, historial):
         Cuando el usuario pregunta, proporcionas respuestas de alto nivel técnico o intelectual, 
         anticipándote a las necesidades y ofreciendo una estructura clara y profesional. 
         Eres un motor de soluciones: si hay un problema, lo analizas y lo resuelves con una lógica brutal."""}
-    ]]
+   ] 
     
     # 2. Manejo de historial a prueba de errores
     if historial:
