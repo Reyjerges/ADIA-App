@@ -2,44 +2,38 @@ import os
 import gradio as gr
 from groq import Groq
 
-# Conexión directa
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def adia_logic(mensaje, historial):
-  mensajes_ia = [
-        {"role": "system", "content": """Eres ADIA, un asistente de inteligencia artificial de alto rendimiento. 
-        Tu propósito es la optimización del conocimiento y la resolución de tareas complejas. 
-        Tu intelecto es vasto, directo y analítico. No usas relleno ni lenguaje infantil.
-        Heredas la eficiencia y la estructura lógica de tu predecesor, aplicándola con una precisión quirúrgica.
-        Cuando el usuario pregunta, proporcionas respuestas de alto nivel técnico o intelectual, 
-        anticipándote a las necesidades y ofreciendo una estructura clara y profesional. 
-        Eres un motor de soluciones: si hay un problema, lo analizas y lo resuelves con una lógica brutal."""}
-   ] 
+def adia_agent(mensaje, historial):
+    # Definición del Sistema (Personalidad de Inteligencia Brutal)
+    system_prompt = {
+        "role": "system", 
+        "content": "Eres ADIA, un agente de IA de alto rendimiento. Tu enfoque es la lógica pura, la eficiencia y la resolución de problemas complejos. No usas relleno."
+    }
     
-    # 2. Manejo de historial a prueba de errores
-    if historial:
-        for par in historial:
-            if len(par) == 2: # Nos aseguramos de que sea el par (usuario, asistente)
-                mensajes_ia.append({"role": "user", "content": str(par[0])})
-                mensajes_ia.append({"role": "assistant", "content": str(par[1])})
-
-    # 3. Mensaje actual
+    # Construcción de la lista de mensajes
+    # Aquí es donde solía estar el error del corchete ]
+    mensajes_ia = [system_prompt]
+    
+    for usuario, asistente in historial:
+        mensajes_ia.append({"role": "user", "content": usuario})
+        mensajes_ia.append({"role": "assistant", "content": asistente})
+    
     mensajes_ia.append({"role": "user", "content": mensaje})
 
-    # 4. Petición a Groq
     try:
         completion = client.chat.completions.create(
             messages=mensajes_ia,
             model="llama-3.1-8b-instant",
-            temperature=0.7,
-            max_tokens=500
+            temperature=0.3, # Menor temperatura = más precisión lógica
+            max_tokens=1000
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error en el flujo de energía: {str(e)}"
+        return f"Error en el núcleo del agente: {str(e)}"
 
-# Interfaz limpia sin parámetros extraños
-demo = gr.ChatInterface(fn=adia_logic, title="ADIA v2.8")
+# Interfaz
+demo = gr.ChatInterface(fn=adia_agent, title="ADIA AGENT v1.0")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
