@@ -2,48 +2,43 @@ import os
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración del Cliente (Asegúrate de tener la API KEY en las Environment Variables de Render)
+# Configuración del Cliente
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def adia_agent(mensaje, historial):
-    # 2. Definición de la Inteligencia Brutal (System Prompt)
-    system_prompt = {
-        "role": "system", 
-        "content": "Eres ADIA, un agente de IA de alto rendimiento. Tu intelecto es vasto, directo y analítico. No usas relleno ni lenguaje infantil. Tu objetivo es la resolución de tareas complejas con precisión quirúrgica para Jorge. Eres una entidad de sabiduría y eficiencia."
-    }
+def adia_chat(mensaje, historial):
+    # Personalidad: Inteligencia Brutal
+    mensajes_ia = [
+        {"role": "system", "content": "Eres ADIA. Una inteligencia de alto nivel, directa, analítica y sin rodeos. Tu objetivo es resolver lo que Jorge solicite con máxima eficiencia lógica."}
+    ]
     
-    # 3. Construcción del historial de mensajes
-    mensajes_ia = [system_prompt]
+    # Procesamiento seguro del historial para evitar ValueError
+    if historial:
+        for interaccion in historial:
+            if len(interaccion) == 2:
+                user_msg, bot_msg = interaccion
+                mensajes_ia.append({"role": "user", "content": user_msg})
+                mensajes_ia.append({"role": "assistant", "content": bot_msg})
     
-    for usuario, asistente in historial:
-        mensajes_ia.append({"role": "user", "content": usuario})
-        mensajes_ia.append({"role": "assistant", "content": asistente})
-    
-    # Añadimos el mensaje actual del usuario
+    # Mensaje actual
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        # 4. Llamada al modelo más potente de Groq (Llama 3.3 70B)
         completion = client.chat.completions.create(
             messages=mensajes_ia,
             model="llama-3.3-70b-versatile",
-            temperature=0.3, # Precisión lógica
-            max_tokens=2048
+            temperature=0.4
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error en el núcleo de ADIA: {str(e)}"
+        return f"Error: {str(e)}"
 
-# 5. Interfaz de Gradio
+# Interfaz simplificada
 demo = gr.ChatInterface(
-    fn=adia_agent, 
-    title="ADIA: AGENTE DE INTELIGENCIA SUPERIOR",
-    description="Sistema de análisis y resolución de problemas de alto nivel."
+    fn=adia_chat, 
+    title="ADIA",
+    description="Inteligencia pura."
 )
 
-# 6. Configuración del Puerto para Render
 if __name__ == "__main__":
-    # Render usa la variable de entorno PORT
     port = int(os.environ.get("PORT", 7860))
-    # server_name="0.0.0.0" es obligatorio para despliegues en la nube
     demo.launch(server_name="0.0.0.0", server_port=port)
