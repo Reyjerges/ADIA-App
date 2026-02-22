@@ -8,9 +8,12 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_logic(mensaje, historial):
-    # 1. Identidad de la IA
+    # 1. Identidad de la IA (REFORZADA)
     mensajes_ia = [
-        {"role": "system", "content": "Eres ADIA, una IA avanzada con memoria. Ayuda de forma precisa y recuerda datos personales que el usuario comparta."}
+        {
+            "role": "system", 
+            "content": "Eres ADIA, una IA avanzada y lógica. Olvida temas irrelevantes como el idioma asturiano a menos que el usuario lo pregunte. Tu prioridad es responder sobre tecnología, anime (especialmente Dragon Ball, JJK y Naruto) y ayudar al usuario con sus dudas. Sé directo y no inventes datos falsos."
+        }
     ]
     
     # 2. Memoria (Historial)
