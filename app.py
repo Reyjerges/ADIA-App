@@ -8,28 +8,27 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_logic(mensaje, historial):
-    # 1. Identidad de la IA (REFORZADA)
+    # 1. Identidad Reforzada
     mensajes_ia = [
-        {
-            "role": "system", 
-            "content": "Eres ADIA, una IA avanzada y lógica. Olvida temas irrelevantes como el idioma asturiano a menos que el usuario lo pregunte. Tu prioridad es responder sobre tecnología, anime (especialmente Dragon Ball, JJK y Naruto) y ayudar al usuario con sus dudas. Sé directo y no inventes datos falsos."
-        }
+        {"role": "system", "content": "Eres ADIA, una IA experta en Anime (DB, JJK, Naruto) y tecnología. Sé breve y lógica. Si buscas en internet, filtra solo lo relevante."}
     ]
     
-    # 2. Memoria (Historial)
-    for user_msg, assistant_msg in historial[-5:]:
+    # 2. Memoria Corta (Solo los últimos 3 mensajes para evitar errores)
+    for user_msg, assistant_msg in historial[-3:]:
         mensajes_ia.append({"role": "user", "content": user_msg})
         mensajes_ia.append({"role": "assistant", "content": assistant_msg})
 
-    # 3. Búsqueda Web
+    # 3. Búsqueda Web Ultra-Limitada (Solo 500 caracteres)
+    contexto_web = ""
     try:
-        search_result = tavily.search(query=mensaje, search_depth="basic")
-        contexto_web = "\n".join([res['content'] for res in search_result['results']])[:800]
+        if len(mensaje) > 4: # Solo busca si la pregunta es larga
+            search_result = tavily.search(query=mensaje, search_depth="basic")
+            contexto_web = "\n".join([res['content'] for res in search_result['results']])[:500]
     except:
-        contexto_web = "Sin datos de internet."
+        contexto_web = "No se encontraron datos nuevos."
 
     # 4. Prompt Final
-    prompt_final = f"Internet: {contexto_web}\n\nPregunta: {mensaje}"
+    prompt_final = f"Contexto: {contexto_web}\n\nUsuario: {mensaje}"
     mensajes_ia.append({"role": "user", "content": prompt_final})
 
     # 5. Respuesta de Groq
@@ -37,27 +36,17 @@ def adia_logic(mensaje, historial):
         completion = client.chat.completions.create(
             messages=mensajes_ia,
             model="llama-3.1-8b-instant",
-            temperature=0.6,
-            max_tokens=500
+            temperature=0.5, # Menos locura, más lógica
+            max_tokens=400
         )
         respuesta = completion.choices[0].message.content
     except Exception as e:
-        respuesta = f"Error: {str(e)}"
+        respuesta = "Error de conexión. Intenta de nuevo."
 
     return respuesta
 
-# Interfaz de Usuario (Líneas 50-65 donde estaba el error)
-demo = gr.ChatInterface(
-    fn=adia_logic,
-    title="ADIA v2.2",
-    description="IA con memoria y búsqueda activa."
-)
+# Interfaz limpia
+demo = gr.ChatInterface(fn=adia_logic, title="ADIA v2.5")
 
 if __name__ == "__main__":
-    puerto = int(os.environ.get("PORT", 7860))
-    demo.theme = gr.themes.Soft()
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=puerto,
-        share=False
-    )
+    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
