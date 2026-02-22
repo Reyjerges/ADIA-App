@@ -3,62 +3,58 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# Conexión con las APIs (Configúralas en el Dashboard de Render)
+# Conexión con las APIs
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_logic(mensaje, historial):
-    # 1. Personalidad de ADIA
+    # 1. Definición de identidad y memoria
     mensajes_ia = [
         {
             "role": "system", 
-            "content": "Eres ADIA, una IA con memoria creada por un programador de 12 años. Si el usuario te cuenta algo personal, recuérdalo. Eres directo y eficiente."
+            "content": "Eres ADIA, una inteligencia artificial avanzada con capacidad de memoria. Tu objetivo es ayudar al usuario de forma precisa y eficiente. Si el usuario te proporciona información personal o preferencias, guárdalas en el contexto para futuras respuestas."
         }
     ]
     
-    # 2. Cargar historial para la memoria
+    # 2. Gestión del historial de conversación
     for user_msg, assistant_msg in historial:
         mensajes_ia.append({"role": "user", "content": user_msg})
         mensajes_ia.append({"role": "assistant", "content": assistant_msg})
 
-    # 3. Búsqueda en tiempo real con Tavily
+    # 3. Búsqueda de información actualizada
     try:
         search_result = tavily.search(query=mensaje, search_depth="basic")
         contexto_web = "\n".join([res['content'] for res in search_result['results']])
     except Exception:
-        contexto_web = "No se pudo obtener información de internet."
+        contexto_web = "Búsqueda web no disponible."
 
-    # 4. Prompt final
-    prompt_final = f"Datos de internet: {contexto_web}\n\nPregunta: {mensaje}"
+    # 4. Construcción del prompt
+    prompt_final = f"Contexto de búsqueda: {contexto_web}\n\nPregunta del usuario: {mensaje}"
     mensajes_ia.append({"role": "user", "content": prompt_final})
 
-    # 5. Respuesta de Groq (Llama 3 8B)
+    # 5. Respuesta de Groq con el modelo actualizado (Llama 3.1 8B)
     try:
         completion = client.chat.completions.create(
             messages=mensajes_ia,
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             temperature=0.7
         )
         respuesta = completion.choices[0].message.content
     except Exception as e:
-        respuesta = f"Error en el sistema: {str(e)}"
+        respuesta = f"Error en el procesamiento: {str(e)}"
 
     return respuesta
 
-# Configuración de la Interfaz (Corregida para evitar error de 'theme')
+# Interfaz de Usuario
 demo = gr.ChatInterface(
     fn=adia_logic,
-    title="ADIA v2.0",
-    description="IA con memoria y búsqueda real. Creada por un Hechicero de Grado Especial.",
-    examples=["¿Quién es más fuerte, tú o ChatGPT?", "¿Cuál es mi color favorito?"]
+    title="ADIA v2.1",
+    description="Asistente inteligente con memoria y acceso a información en tiempo real.",
+    examples=["¿Cuál es la noticia más importante de hoy?", "¿Puedes recordar mi nombre si te lo digo?"]
 )
 
-# Lanzamiento con puerto dinámico para Render
 if __name__ == "__main__":
-    # Definimos el puerto antes del launch
     puerto = int(os.environ.get("PORT", 7860))
-    
-    # Aplicamos el tema de forma segura fuera del constructor
     demo.theme = gr.themes.Soft()
     
     demo.launch(
