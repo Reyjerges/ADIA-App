@@ -52,7 +52,7 @@ def adia_cerebro(mensaje, historial):
     try:
         # Usamos Llama 3.1 8B para evitar bloqueos por Rate Limit
         completion = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant", 
+              model="llama-3.3-70b-versatile",
             messages=mensajes_ia,
             temperature=0.4
         )
