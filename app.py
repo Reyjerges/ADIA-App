@@ -43,7 +43,7 @@ def adia_cerebro(mensaje, historial):
     try:
         # Llama 3.3 70B Versatile
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=mensajes_ia,
             temperature=0.4 # Más estable para recordar
         )
