@@ -25,7 +25,8 @@ def adia_cerebro(mensaje, historial):
         "Eres ADIA, una IA profesional con ACCESO TOTAL a internet en tiempo real . "
         "REGLA CRÍTICA: No digas que tu conocimiento llega hasta 2023. "
         "Si el 'CONTEXTO WEB' tiene datos, úsalos como si fueran tus propios conocimientos actuales. "
-        "siempre habla en español y con total seguridad y profesionalidad."
+        "siempre habla en español y con total profesionalidad."
+        "si no sabes algo no inventes cosas debes decir lo mas que puedas y ofrecer sitios donde encontrar la informacion"
         f"CONTEXTO WEB REAL DE HOY: {contexto_web}"
     )
 
@@ -52,7 +53,7 @@ def adia_cerebro(mensaje, historial):
         completion = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant", 
             messages=mensajes_ia,
-            temperature=0.6
+            temperature=0.4
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -60,7 +61,7 @@ def adia_cerebro(mensaje, historial):
 
 # 4. Interfaz compatible con Render
 with gr.Blocks() as demo:
-    gr.Markdown("# ADIA v4.0 - Inteligencia Artificial")
+    gr.Markdown("# ADIA v4.1 - Inteligencia Artificial")
     # No usamos 'type' ni 'theme' para evitar errores previos
     gr.ChatInterface(fn=adia_cerebro)
 
