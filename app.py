@@ -10,7 +10,7 @@ tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 def adia_cerebro(mensaje, historial):
     contexto_web = ""
     
-    # Filtro de búsqueda
+    # Búsqueda inteligente
     if len(mensaje.split()) > 3:
         try:
             search_result = tavily.search(query=mensaje, search_depth="basic", max_results=1)
@@ -23,22 +23,16 @@ def adia_cerebro(mensaje, historial):
         "content": f"Eres ADIA. Inteligencia de Grado Especial. Natural y lógica. Contexto: {contexto_web}"
     }]
     
-    # --- PROCESAMIENTO SEGURO DEL HISTORIAL ---
-    # Tomamos los últimos 3 intercambios
+    # Procesamiento del historial
     ventana = historial[-3:] if len(historial) > 3 else historial
-    
     for intercambio in ventana:
-        # Caso 1: El historial es una lista de listas [user, bot] (Gradio Estándar)
-        if isinstance(intercambio, (list, tuple)):
-            if len(intercambio) >= 2:
-                user_msg, bot_msg = intercambio[0], intercambio[1]
-                if user_msg: mensajes_ia.append({"role": "user", "content": user_msg})
-                if bot_msg: mensajes_ia.append({"role": "assistant", "content": bot_msg})
-        
-        # Caso 2: El historial es una lista de diccionarios (Versiones nuevas/específicas)
+        if isinstance(intercambio, (list, tuple)) and len(intercambio) >= 2:
+            u, a = intercambio[0], intercambio[1]
+            if u: mensajes_ia.append({"role": "user", "content": u})
+            if a: mensajes_ia.append({"role": "assistant", "content": a})
         elif isinstance(intercambio, dict):
-            u = intercambio.get("user") or intercambio.get("content") if intercambio.get("role") == "user" else None
-            a = intercambio.get("assistant") or intercambio.get("content") if intercambio.get("role") == "assistant" else None
+            u = intercambio.get("user") or intercambio.get("content")
+            a = intercambio.get("assistant") or intercambio.get("content")
             if u: mensajes_ia.append({"role": "user", "content": u})
             if a: mensajes_ia.append({"role": "assistant", "content": a})
     
@@ -48,19 +42,21 @@ def adia_cerebro(mensaje, historial):
         respuesta = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
             messages=mensajes_ia,
-            temperature=0.7,
-            max_tokens=1000
+            temperature=0.7
         )
         return respuesta.choices[0].message.content
     except Exception as e:
-        return f"ADIA: Error de comunicación ({str(e)})"
+        return f"ADIA: Error ({str(e)})"
 
-# Interfaz simplificada para máxima compatibilidad
-demo = gr.ChatInterface(
-    fn=adia_cerebro, 
-    title="ADIA v3.3"
-)
+# Interfaz
+demo = gr.ChatInterface(fn=adia_cerebro, title="ADIA v3.4")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch
+    # Render usa la variable PORT. Si no existe, usamos 10000 por defecto.
+    port = int(os.environ.get("PORT", 10000))
+    # 'prevent_thread_lock=False' es clave para que el proceso no muera en Render
+    demo.launch(
+        server_name="0.0.0.0", 
+        server_port=port,
+        prevent_thread_lock=False
+    )
