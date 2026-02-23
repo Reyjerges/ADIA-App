@@ -20,11 +20,14 @@ def adia_cerebro(mensaje, historial):
             pass
 
     # 2. Instrucciones Profesionales
+       # 2. Instrucciones Profesionales (AJUSTADAS)
     sistema_prompt = (
-        "Eres ADIA, un asistente profesional. Jorge es tu prioridad. "
-        "Usa el historial para recordar datos personales y el contexto para noticias. "
-        f"CONTEXTO WEB: {contexto_web}"
+        "Eres ADIA, una IA profesional de Grado Especial con ACCESO TOTAL a internet en tiempo real. "
+        "REGLA CRÍTICA: No digas que tu conocimiento llega hasta 2023. "
+        "Si el 'CONTEXTO WEB' tiene datos, úsalos como si fueran tus propios conocimientos actuales. "
+        f"CONTEXTO WEB REAL DE HOY: {contexto_web}"
     )
+
 
     # 3. RECONSTRUCCIÓN DE MEMORIA SIN ERRORES (Safe Unpack)
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
@@ -56,7 +59,7 @@ def adia_cerebro(mensaje, historial):
 
 # 4. Interfaz compatible con Render
 with gr.Blocks() as demo:
-    gr.Markdown("# ADIA v4.0 - Inteligencia Equilibrada")
+    gr.Markdown("# ADIA v4.0 - Inteligencia Artificial")
     # No usamos 'type' ni 'theme' para evitar errores previos
     gr.ChatInterface(fn=adia_cerebro)
 
