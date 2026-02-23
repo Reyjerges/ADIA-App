@@ -3,41 +3,48 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# Clientes con variables de entorno de Render
+# Clientes
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda con Tavily (Solo si es necesario para ahorrar tiempo)
+    # 1. Búsqueda con Tavily (Solo si es necesario)
     contexto_web = ""
-    if any(p in mensaje.lower() for p in ["noticia", "quién", "qué pasó", "hoy", "precio"]):
+    disparadores = ["noticia", "quién", "qué pasó", "hoy", "precio", "clima", "mencho"]
+    if any(p in mensaje.lower() for p in disparadores):
         try:
             search_result = tavily.search(query=mensaje, search_depth="basic", max_results=2)
             for r in search_result.get('results', []):
-                # Tomamos una buena porción de la noticia
-                contexto_web += f"DATO: {r['content'][:600]}\n"
+                contexto_web += f"DATO: {r['content'][:500]}\n"
         except:
-            contexto_web = "No pude acceder a internet en este momento."
+            pass
 
-    # 2. Personalidad Profesional (ChatGPT Style)
+    # 2. Instrucciones Profesionales
     sistema_prompt = (
-        "Eres ADIA, un asistente de IA profesional y eficiente. Jorge es tu prioridad. "
-        "Tu tono es formal y directo. Usa el contexto de internet para informar con precisión. "
-        f"CONTEXTO ACTUAL: {contexto_web}"
+        "Eres ADIA, un asistente profesional. Jorge es tu prioridad. "
+        "Usa el historial para recordar datos personales y el contexto para noticias. "
+        f"CONTEXTO WEB: {contexto_web}"
     )
 
-    # 3. Memoria Manual Blindada
+    # 3. RECONSTRUCCIÓN DE MEMORIA SIN ERRORES (Safe Unpack)
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Enviamos los últimos 6 mensajes (3 vueltas de conversación)
-    for usuario, bot in historial[-6:]:
-        if usuario: mensajes_ia.append({"role": "user", "content": usuario})
-        if bot: mensajes_ia.append({"role": "assistant", "content": bot})
+    # Procesamos el historial de forma segura para evitar ValueError
+    for turno in historial:
+        # Si Gradio manda Diccionarios (Versión nueva)
+        if isinstance(turno, dict):
+            mensajes_ia.append({"role": turno["role"], "content": turno["content"]})
+        # Si Gradio manda Listas/Tuplas (Versión vieja)
+        elif isinstance(turno, (list, tuple)) and len(turno) == 2:
+            u, b = turno
+            if u: mensajes_ia.append({"role": "user", "content": u})
+            if b: mensajes_ia.append({"role": "assistant", "content": b})
     
+    # Añadimos la pregunta actual
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        # USAMOS EL SEGUNDO MODELO MÁS POTENTE Y EL MÁS ESTABLE
+        # Usamos Llama 3.1 8B para evitar bloqueos por Rate Limit
         completion = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant", 
             messages=mensajes_ia,
@@ -45,14 +52,14 @@ def adia_cerebro(mensaje, historial):
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"ADIA: Error de comunicación. Intenta de nuevo. ({str(e)})"
+        return f"ADIA: Error de comunicación ({str(e)})"
 
-# 4. Interfaz Limpia para Render (Sin argumentos conflictivos)
+# 4. Interfaz compatible con Render
 with gr.Blocks() as demo:
-    gr.Markdown("# ADIA - Inteligencia Equilibrada")
+    gr.Markdown("# ADIA v4.0 - Inteligencia Equilibrada")
+    # No usamos 'type' ni 'theme' para evitar errores previos
     gr.ChatInterface(fn=adia_cerebro)
 
 if __name__ == "__main__":
-    # Render maneja el puerto
     puerto = int(os.environ.get("PORT", 10000))
     demo.launch(server_name="0.0.0.0", server_port=puerto)
