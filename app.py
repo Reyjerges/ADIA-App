@@ -2,39 +2,44 @@ import os
 import gradio as gr
 from groq import Groq
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# Configuración del Cliente
+api_key = os.environ.get("GROQ_API_KEY")
+client = Groq(api_key=api_key)
 
 def adia_chat(mensaje, historial):
-    # 1. El System Prompt siempre es la base
+    # System Prompt: La esencia de ADIA
     mensajes_ia = [
-        {"role": "system", "content": "Eres ADIA. Inteligencia de alto nivel. Tienes memoria absoluta de esta conversación con Jorge. Sé directa y brutalmente eficiente."}
+        {"role": "system", "content": "Eres ADIA. Inteligencia de alto nivel, directa y eficiente. Tienes memoria de esta charla con Jorge."}
     ]
     
-    # 2. Inyectamos TODO el historial previo en el contexto
-    # Gradio pasa el historial como una lista de listas [[user, bot], [user, bot]]
-    for interaccion in historial:
-        mensajes_ia.append({"role": "user", "content": interaccion[0]})
-        mensajes_ia.append({"role": "assistant", "content": interaccion[1]})
+    # Procesamiento del historial ultra-seguro
+    if historial:
+        for h in historial:
+            try:
+                # Intentamos extraer usuario y asistente
+                user_part = h[0] if len(h) > 0 else ""
+                bot_part = h[1] if len(h) > 1 else ""
+                if user_part: mensajes_ia.append({"role": "user", "content": user_part})
+                if bot_part: mensajes_ia.append({"role": "assistant", "content": bot_part})
+            except:
+                continue # Si falla una línea del historial, saltamos a la siguiente
     
-    # 3. Añadimos el mensaje que acabas de escribir
+    # Mensaje actual
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
+        # Usamos el modelo 8b que es más rápido y menos propenso a errores de cuota
         completion = client.chat.completions.create(
             messages=mensajes_ia,
-            model="llama-3.3-70b-versatile",
-            temperature=0.5 # Subimos un poco para que sea más fluida en la conversación
+            model="llama-3.1-8b-instant", 
+            temperature=0.5
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Error de memoria: {str(e)}"
+        return f"Error en la conexión de ADIA: {str(e)}"
 
-# Usamos ChatInterface que maneja el historial automáticamente por nosotros
-demo = gr.ChatInterface(
-    fn=adia_chat, 
-    title="ADIA",
-    description="Memoria Activa - Inteligencia Superior"
-)
+# Interfaz
+demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
