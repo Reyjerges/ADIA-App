@@ -3,61 +3,68 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# Clientes
+# Configuración de Clientes
+# Pon tus llaves en las variables de entorno de Render
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda de noticias / información real
+    # 1. Búsqueda de noticias con Tavily
     contexto_web = "No se encontró información reciente."
     try:
-        # Forzamos una búsqueda más profunda para noticias
         search_result = tavily.search(query=mensaje, search_depth="advanced", max_results=3)
-        if search_result['results']:
+        if search_result.get('results'):
             contexto_web = "\n".join([f"NOTICIA: {r['content']}" for r in search_result['results']])
     except Exception as e:
         print(f"Error en Tavily: {e}")
 
-    # 2. Instrucciones del Sistema (Más estrictas)
-    # Le decimos que DEBE usar el contexto de arriba
-    sistema = (
-        "Eres ADIA, una IA de Grado Especial. Jorge es tu prioridad. "
-        "REGLA DE ORO: Tienes acceso a internet. Usa la información del 'Contexto' para responder. "
-        "Si te preguntan por noticias, lee el Contexto y resume lo que dice. "
-        f"CONTEXTO ACTUAL DE INTERNET: {contexto_web}"
+    # 2. Personalidad Profesional
+    sistema_prompt = (
+        "Eres ADIA, un asistente de IA profesional y avanzado. Jorge es tu prioridad. "
+        "Tu tono es formal, preciso y servicial, similar a ChatGPT. "
+        "Usa los datos del contexto para responder con veracidad. "
+        f"CONTEXTO ACTUAL DE INTERNET:\n{contexto_web}"
     )
 
-    mensajes_ia = [{"role": "system", "content": sistema}]
+    # 3. CONSTRUCCIÓN DE MEMORIA MANUAL (Sin usar parámetros conflictivos)
+    mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # 3. MEMORIA CORREGIDA (Para que no se le olvide nada)
-    # Gradio manda el historial como una lista de listas [[user, bot], [user, bot]]
+    # Recorremos el historial que Gradio envía como lista de listas [[user, bot], ...]
     for par in historial:
-        if len(par) == 2:
-            user_msg, bot_msg = par
-            if user_msg: mensajes_ia.append({"role": "user", "content": user_msg})
-            if bot_msg: mensajes_ia.append({"role": "assistant", "content": bot_msg})
+        # Añadimos lo que dijo el usuario
+        mensajes_ia.append({"role": "user", "content": par[0]})
+        # Añadimos lo que respondió la IA
+        mensajes_ia.append({"role": "assistant", "content": par[1]})
     
-    # Añadimos el mensaje actual
+    # Añadimos la pregunta actual
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        # Usamos el 70B que es el que mejor procesa noticias
-        respuesta = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
+        # Llamada a Llama 3.3 70B Versatile en Groq
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=mensajes_ia,
-            temperature=0.5 # Menos creatividad, más hechos
+            temperature=0.5
         )
-        return respuesta.choices[0].message.content
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"ADIA: Error de procesamiento ({str(e)})"
+        return f"ADIA: Error de sistema ({str(e)})"
 
-# Interfaz
+# 4. Interfaz de Gradio (Versión compatible con Render)
+# No usamos el argumento 'type' aquí para evitar tu error
 demo = gr.ChatInterface(
-    fn=adia_cerebro, 
-    title="ADIA v3.5 - Real Time",
-    description="Sistema de búsqueda profunda y memoria activa."
+    fn=adia_cerebro,
+    title="ADIA v3.5 - Profesional",
+    description="Motor Llama 3.3 70B con Memoria Activa y Búsqueda Real.",
+    theme="soft"
 )
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    demo.launch(server_name="0.0.0.0", server_port=port, prevent_thread_lock=False)
+    # Render asigna el puerto automáticamente
+    puerto_env = os.environ.get("PORT", "10000")
+    puerto = int(puerto_env)
+    
+    demo.launch(
+        server_name="0.0.0.0", 
+        server_port=puerto
+    )
