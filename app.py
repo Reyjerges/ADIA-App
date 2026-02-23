@@ -1,46 +1,48 @@
 import os
 import gradio as gr
 from groq import Groq
+from tavily import TavilyClient
 
-# Configuración del Cliente
-api_key = os.environ.get("GROQ_API_KEY")
-client = Groq(api_key=api_key)
+# Clientes
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
-def adia_chat(mensaje, historial):
-    # System Prompt: La esencia de ADIA
-    mensajes_ia = [
-        {"role": "system", "content": "Eres ADIA. Inteligencia de alto nivel, directa y eficiente. Tienes memoria de esta charla con Jorge."}
-    ]
+def adia_cerebro(mensaje, historial):
+    # 1. ¿Necesita buscar en internet? 
+    # Hacemos una búsqueda rápida para darle contexto actual
+    contexto_web = ""
+    try:
+        search_result = tavily.search(query=mensaje, search_depth="basic", max_results=3)
+        contexto_web = "\n".join([f"- {r['content']}" for r in search_result['results']])
+    except:
+        contexto_web = "No se pudo acceder a internet en este momento."
+
+    # 2. System Prompt con esteroides
+    mensajes_ia = [{
+        "role": "system", 
+        "content": f"Eres ADIA. Inteligencia superior con acceso a internet. Usa este contexto si es relevante: {contexto_web}. Sé directa, brutal y precisa. Jorge es tu prioridad."
+    }]
     
-    # Procesamiento del historial ultra-seguro
-    if historial:
-        for h in historial:
-            try:
-                # Intentamos extraer usuario y asistente
-                user_part = h[0] if len(h) > 0 else ""
-                bot_part = h[1] if len(h) > 1 else ""
-                if user_part: mensajes_ia.append({"role": "user", "content": user_part})
-                if bot_part: mensajes_ia.append({"role": "assistant", "content": bot_part})
-            except:
-                continue # Si falla una línea del historial, saltamos a la siguiente
+    # 3. Memoria (Historial)
+    for h_user, h_bot in historial:
+        mensajes_ia.append({"role": "user", "content": h_user})
+        mensajes_ia.append({"role": "assistant", "content": h_bot})
     
-    # Mensaje actual
+    # 4. Mensaje actual
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        # Usamos el modelo 8b que es más rápido y menos propenso a errores de cuota
-        completion = client.chat.completions.create(
+        # Volvemos al modelo 70B para procesar todo esto
+        respuesta = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=mensajes_ia,
-            model="llama-3.1-8b-instant", 
-            temperature=0.5
+            temperature=0.3
         )
-        return completion.choices[0].message.content
+        return respuesta.choices[0].message.content
     except Exception as e:
-        return f"Error en la conexión de ADIA: {str(e)}"
+        return f"Error en el núcleo de ADIA: {str(e)}"
 
-# Interfaz
-demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
+demo = gr.ChatInterface(fn=adia_cerebro, title="ADIA + SEARCH")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
