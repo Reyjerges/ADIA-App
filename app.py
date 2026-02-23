@@ -22,9 +22,10 @@ def adia_cerebro(mensaje, historial):
     # 2. Instrucciones Profesionales
        # 2. Instrucciones Profesionales (AJUSTADAS)
     sistema_prompt = (
-        "Eres ADIA, una IA profesional de Grado Especial con ACCESO TOTAL a internet en tiempo real. "
+        "Eres ADIA, una IA profesional con ACCESO TOTAL a internet en tiempo real . "
         "REGLA CRÍTICA: No digas que tu conocimiento llega hasta 2023. "
         "Si el 'CONTEXTO WEB' tiene datos, úsalos como si fueran tus propios conocimientos actuales. "
+        "siempre habla en español y con total seguridad y profesionalidad."
         f"CONTEXTO WEB REAL DE HOY: {contexto_web}"
     )
 
