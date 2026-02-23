@@ -10,7 +10,7 @@ tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 def adia_cerebro(mensaje, historial):
     contexto_web = ""
     
-    # Filtro inteligente para búsquedas
+    # Filtro de búsqueda
     if len(mensaje.split()) > 3:
         try:
             search_result = tavily.search(query=mensaje, search_depth="basic", max_results=1)
@@ -20,26 +20,27 @@ def adia_cerebro(mensaje, historial):
 
     mensajes_ia = [{
         "role": "system", 
-        "content": (
-            "Eres ADIA. Asistente De Inteligencia Artificial. "
-            "Responde de forma natural, lógica y sofisticada a Jorge. "
-            f"Contexto: {contexto_web}"
-        )
+        "content": f"Eres ADIA. Inteligencia de Grado Especial. Natural y lógica. Contexto: {contexto_web}"
     }]
     
-    # --- FIX PARA EL ERROR DE UNPACKING ---
-    # Procesamos el historial de forma segura sin importar el formato
+    # --- PROCESAMIENTO SEGURO DEL HISTORIAL ---
+    # Tomamos los últimos 3 intercambios
     ventana = historial[-3:] if len(historial) > 3 else historial
+    
     for intercambio in ventana:
-        # Si es un diccionario (Gradio nuevo)
-        if isinstance(intercambio, dict):
-            mensajes_ia.append({"role": "user", "content": intercambio.get("user", "")})
-            mensajes_ia.append({"role": "assistant", "content": intercambio.get("assistant", "")})
-        # Si es una lista/tupla (Gradio antiguo)
-        elif isinstance(intercambio, (list, tuple)) and len(intercambio) == 2:
-            user_msg, bot_msg = intercambio
-            if user_msg: mensajes_ia.append({"role": "user", "content": user_msg})
-            if bot_msg: mensajes_ia.append({"role": "assistant", "content": bot_msg})
+        # Caso 1: El historial es una lista de listas [user, bot] (Gradio Estándar)
+        if isinstance(intercambio, (list, tuple)):
+            if len(intercambio) >= 2:
+                user_msg, bot_msg = intercambio[0], intercambio[1]
+                if user_msg: mensajes_ia.append({"role": "user", "content": user_msg})
+                if bot_msg: mensajes_ia.append({"role": "assistant", "content": bot_msg})
+        
+        # Caso 2: El historial es una lista de diccionarios (Versiones nuevas/específicas)
+        elif isinstance(intercambio, dict):
+            u = intercambio.get("user") or intercambio.get("content") if intercambio.get("role") == "user" else None
+            a = intercambio.get("assistant") or intercambio.get("content") if intercambio.get("role") == "assistant" else None
+            if u: mensajes_ia.append({"role": "user", "content": u})
+            if a: mensajes_ia.append({"role": "assistant", "content": a})
     
     mensajes_ia.append({"role": "user", "content": mensaje})
 
@@ -52,15 +53,14 @@ def adia_cerebro(mensaje, historial):
         )
         return respuesta.choices[0].message.content
     except Exception as e:
-        return f"ADIA: Error en el núcleo ({str(e)})"
+        return f"ADIA: Error de comunicación ({str(e)})"
 
-# Interfaz
+# Interfaz simplificada para máxima compatibilidad
 demo = gr.ChatInterface(
     fn=adia_cerebro, 
-    title="ADIA v3.2",
-    type="messages" # Forzamos el formato de mensajes más estable
+    title="ADIA v3.3"
 )
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    demo.launch
