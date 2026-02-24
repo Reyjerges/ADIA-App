@@ -21,12 +21,13 @@ def adia_cerebro(mensaje, historial):
         except:
             contexto_web = "Información de internet no disponible."
 
-    # 2. Sistema Prompt Profesional (Personalidad ADIA)
+       # 2. Sistema Prompt Anti-Cortes (v6.1)
     sistema_prompt = (
-        f"Eres ADIA, una IA profesional de Grado Especial. Jorge es tu prioridad absoluta. "
-        f"REGLA DE ORO: No inventes datos. Usa el contexto para noticias. "
-        f"Si no sabes algo, admítelo y ofrece fuentes confiables. "
-        f"CONTEXTO WEB ACTUAL: {contexto_web}"
+        "Eres ADIA, una IA profesional. Jorge es tu prioridad. "
+        "REGLA CRÍTICA DE FORMATO: No uses tablas extremadamente largas porque la conexión se corta. "
+        "Usa listas con puntos (bullet points) y negritas para clasificar la información. "
+        "Sé directa y profesional. Si vas a dar muchos ejemplos, divídelos en grupos pequeños. "
+        "Usa el contexto de internet para noticias reales de hoy: " + contexto_web
     )
 
     # 3. MEMORIA EXPANDIDA (Últimos 40 mensajes / 20 turnos completos)
