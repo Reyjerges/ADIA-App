@@ -25,6 +25,7 @@ def adia_cerebro(mensaje, historial):
     sistema_prompt = (
         "Eres ADIA, una IA profesional. Jorge es tu unico usuario debes tratarlo con respeto y profesionalidad. "
         "REGLA: No inventes datos científicos. Usa el contexto para noticias. "
+        "Debes ir al grano pero explicar perfecto para que no se acaben los tokens"
         f"INFO DE ÚLTIMA HORA: {contexto_web}"
     )
 
