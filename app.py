@@ -8,13 +8,13 @@ groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda con "Filtro de Realidad"
+    # 1. Búsqueda de Noticias con Tavily (Filtro de Realidad)
     contexto_web = ""
     disparadores = ["noticia", "hoy", "pasó", "quién", "precio", "clima"]
     
     if any(p in mensaje.lower() for p in disparadores):
         try:
-            # Buscamos noticias reales de hoy 23 de febrero 2026
+            # Forzamos búsqueda con la fecha de hoy 23 de febrero 2026
             busqueda = tavily.search(query="noticias reales hoy 23 febrero 2026", search_depth="advanced", max_results=2)
             if busqueda.get('results'):
                 for r in busqueda['results']:
@@ -22,43 +22,49 @@ def adia_cerebro(mensaje, historial):
         except:
             contexto_web = "SISTEMA: Error de conexión a Internet. No hay datos reales."
 
-    # 2. Instrucciones de Veracidad (Anti-Alucinaciones)
+    # 2. Sistema Prompt (Anti-Alucinaciones)
     sistema_prompt = (
-        "Eres ADIA, asistente profesional de Jorge. "
-        "REGLA DE ORO: Si no tienes datos en el 'CONTEXTO', no inventes noticias ni deportes. "
-        "Diga la verdad científica y actual. No hables de equipos inventados (Titans/Sharks). "
+        "Eres ADIA, asistente profesional de Jorge. Jorge es tu prioridad. "
+        "REGLA DE ORO: Si no hay datos en el 'CONTEXTO', no inventes noticias ni deportes. "
+        "Diga la verdad. No hables de equipos inventados (Titans/Sharks). "
         f"CONTEXTO REAL HOY: {contexto_web}"
     )
 
-    # 3. Memoria de 40 Mensajes
+    # 3. CONSTRUCCIÓN DE MEMORIA SEGURA (Evita el ValueError)
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
-    for u, b in historial[-40:]:
-        if u: mensajes_ia.append({"role": "user", "content": u})
-        if b: mensajes_ia.append({"role": "assistant", "content": b})
     
+    # Recorremos el historial con los últimos 30 mensajes
+    for turno in historial[-30:]:
+        # CASO 1: Es un diccionario (Versión nueva de Gradio)
+        if isinstance(turno, dict):
+            mensajes_ia.append({"role": turno.get("role"), "content": turno.get("content")})
+        # CASO 2: Es una lista de 2 elementos [user, bot] (Versión vieja)
+        elif isinstance(turno, (list, tuple)) and len(turno) == 2:
+            u, b = turno
+            if u: mensajes_ia.append({"role": "user", "content": u})
+            if b: mensajes_ia.append({"role": "assistant", "content": b})
+    
+    # Añadimos la pregunta actual de Jorge
     mensajes_ia.append({"role": "user", "content": mensaje})
 
-    # 4. Intentar con el modelo 120B primero, luego con el 70B
-    modelos_a_probar = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]
-    
-    for modelo in modelos_a_probar:
+    # 4. Bucle de Modelos (120B primero, luego 70B)
+    for modelo in ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]:
         try:
             completion = groq_client.chat.completions.create(
                 model=modelo, 
                 messages=mensajes_ia,
-                temperature=0.4, # Muy baja para evitar mentiras
+                temperature=0.1, # Muy baja para evitar mentiras
                 max_tokens=1200
             )
-            # Forma segura de extraer el contenido
             return completion.choices[0].message.content
         except Exception:
-            continue # Si falla uno, intenta con el siguiente
+            continue 
 
-    return "ADIA: Jorge, todos mis motores están saturados en este momento. Reintenta en unos segundos."
+    return "ADIA: Jorge, mis motores están saturados. Reintenta en 15 segundos."
 
-# 5. Interfaz de Gradio
+# 5. Interfaz de Gradio (Sin parámetros conflictivos para Render)
 with gr.Blocks() as demo:
-    gr.ChatInterface(fn=adia_cerebro, title="ADIA v6.6")
+    gr.ChatInterface(fn=adia_cerebro, title="ADIA v6.7")
 
 if __name__ == "__main__":
     puerto = int(os.environ.get("PORT", 10000))
