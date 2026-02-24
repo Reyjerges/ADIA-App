@@ -3,69 +3,75 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# Clientes
+# Configuración de Clientes (Variables de entorno en Render)
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda con Tavily (Solo si es necesario)
+    # 1. Búsqueda Inteligente con Tavily (Ahorro extremo de tokens)
     contexto_web = ""
-    disparadores = ["noticia", "quién", "qué pasó", "hoy", "precio", "clima", "mencho"]
+    disparadores = ["noticia", "quién", "hoy", "precio", "clima", "actualidad"]
     if any(p in mensaje.lower() for p in disparadores):
         try:
-            search_result = tavily.search(query=mensaje, search_depth="basic", max_results=2)
-            for r in search_result.get('results', []):
-                contexto_web += f"DATO: {r['content'][:500]}\n"
+            # Solo 1 resultado para no saturar al gigante 120B
+            search_res = tavily.search(query=mensaje, search_depth="basic", max_results=1)
+            if search_res.get('results'):
+                # Solo 300 caracteres: lo esencial para la verdad
+                contexto_web = f"DATO REAL DE HOY: {search_res['results'][0]['content'][:300]}"
         except:
-            pass
+            contexto_web = "Sin conexión a internet en este momento."
 
-    # 2. Instrucciones Profesionales
-       # 2. Instrucciones Profesionales (AJUSTADAS)
-        # 2. Instrucciones de ADIA (Versión Blindada v4.1)
+    # 2. El Prompt de Personalidad (Nivel Profesional ChatGPT)
     sistema_prompt = (
-        "Eres ADIA, una IA profesional. Tu prioridad absoluta es Jorge. "
-        "REGLA DE ORO: Tienes acceso a internet real mediante Tavily. No digas que tu base es de 2023. "
-        "VERACIDAD: Si no estás 100% segura de un dato científico o técnico, NO LO INVENTES. "
-        "En su lugar, explica lo que sí sabes con certeza y proporciona enlaces o fuentes de confianza "
-        "(como Wikipedia, National Geographic o revistas científicas) donde Jorge pueda verificarlo. "
-        f"CONTEXTO WEB ACTUAL: {contexto_web}"
+        "Eres ADIA, una IA profesional. Jorge es tu unico usuario debes tratarlo con respeto y profesionalidad. "
+        "REGLA: No inventes datos científicos. Usa el contexto para noticias. "
+        f"INFO DE ÚLTIMA HORA: {contexto_web}"
     )
 
-
-    # 3. RECONSTRUCCIÓN DE MEMORIA SIN ERRORES (Safe Unpack)
+    # 3. Memoria de Elefante (Historial de 10 mensajes con compresión)
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Procesamos el historial de forma segura para evitar ValueError
-    for turno in historial:
-        # Si Gradio manda Diccionarios (Versión nueva)
+    # Enviamos los últimos 10 mensajes para que ADIA no olvide a Sasha ni el azul
+    for turno in historial[-10:]:
+        # Detectamos si el historial viene como lista o diccionario (Safe Unpack)
         if isinstance(turno, dict):
-            mensajes_ia.append({"role": turno["role"], "content": turno["content"]})
-        # Si Gradio manda Listas/Tuplas (Versión vieja)
-        elif isinstance(turno, (list, tuple)) and len(turno) == 2:
-            u, b = turno
-            if u: mensajes_ia.append({"role": "user", "content": u})
-            if b: mensajes_ia.append({"role": "assistant", "content": b})
+            u, b = turno["content"], turno.get("assistant", "") # Depende de la versión de Gradio
+        else:
+            u, b = turno[0], turno[1]
+        
+        if u: mensajes_ia.append({"role": "user", "content": u[:200]}) # Recorte preventivo
+        if b: mensajes_ia.append({"role": "assistant", "content": b[:200]})
     
-    # Añadimos la pregunta actual
+    # Mensaje actual completo
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        # Usamos Llama 3.1 8B para evitar bloqueos por Rate Limit
+        # EL NUEVO REY DE GROQ: GPT-OSS 120B
         completion = groq_client.chat.completions.create(
-              model="llama-3.1-70b-versatile",
+            model="openai/gpt-oss-120b", 
             messages=mensajes_ia,
-            temperature=0.4
+            temperature=0.4, # Punto dulce: inteligente pero no inventa
+            max_tokens=550   # Respuesta profesional y directa
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"ADIA: Error de comunicación ({str(e)})"
+        # Plan B por si el 120B está muy lleno (usa el 70B como respaldo)
+        try:
+            res_backup = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=mensajes_ia,
+                temperature=0.4
+            )
+            return res_backup.choices[0].message.content
+        except:
+            return f"ADIA: Jorge, mis sistemas están saturados. Reintenta en 15 segundos. ({str(e)})"
 
-# 4. Interfaz compatible con Render
+# 4. Interfaz de Gradio (Sin 'type' ni 'theme' para evitar errores)
 with gr.Blocks() as demo:
-    gr.Markdown("# ADIA v4.1 - Inteligencia Artificial")
-    # No usamos 'type' ni 'theme' para evitar errores previos
-    gr.ChatInterface(fn=adia_cerebro)
+    gr.Markdown("# ADIA v5.0 - GPT-OSS 120B Edition")
+    gr.ChatInterface(fn=adia_cerebro, title="Sistema ADIA Profesional")
 
 if __name__ == "__main__":
+    # Render asigna el puerto dinámicamente
     puerto = int(os.environ.get("PORT", 10000))
     demo.launch(server_name="0.0.0.0", server_port=puerto)
