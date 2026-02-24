@@ -8,44 +8,42 @@ groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda Inteligente con Tavily (Ahorro extremo de tokens)
+    # 1. Búsqueda de Noticias con Tavily (Dieta estricta de tokens)
     contexto_web = ""
-    disparadores = ["noticia", "quién", "hoy", "precio", "clima", "actualidad"]
+    disparadores = ["noticia", "quién", "hoy", "precio", "clima", "actualidad", "pasó"]
     if any(p in mensaje.lower() for p in disparadores):
         try:
-            # Solo 1 resultado para no saturar al gigante 120B
+            # Solo 1 resultado para ahorrar espacio en el modelo 120B
             search_res = tavily.search(query=mensaje, search_depth="basic", max_results=1)
             if search_res.get('results'):
-                # Solo 300 caracteres: lo esencial para la verdad
+                # 300 caracteres es suficiente para la verdad científica
                 contexto_web = f"DATO REAL DE HOY: {search_res['results'][0]['content'][:300]}"
         except:
-            contexto_web = "Sin conexión a internet en este momento."
+            contexto_web = "Información de internet no disponible."
 
-    # 2. El Prompt de Personalidad (Nivel Profesional ChatGPT)
+    # 2. Sistema Prompt Profesional (Personalidad ADIA)
     sistema_prompt = (
-        "Eres ADIA, una IA profesional. Jorge es tu unico usuario debes tratarlo con respeto y profesionalidad. "
-        "REGLA: No inventes datos científicos. Usa el contexto para noticias. "
-        "Debes ir al grano pero explicar perfecto para que no se acaben los tokens"
-        "Jorge prefiere respuestas en formato de lista con puntos (bullet points) en lugar de tablas largas, para evitar que el texto se corte por límites de espacio."
-
-        f"INFO DE ÚLTIMA HORA: {contexto_web}"
+        f"Eres ADIA, una IA profesional de Grado Especial. Jorge es tu prioridad absoluta. "
+        f"REGLA DE ORO: No inventes datos. Usa el contexto para noticias. "
+        f"Si no sabes algo, admítelo y ofrece fuentes confiables. "
+        f"CONTEXTO WEB ACTUAL: {contexto_web}"
     )
 
-    # 3. Memoria de Elefante (Historial de 10 mensajes con compresión)
+    # 3. MEMORIA EXPANDIDA (Últimos 40 mensajes / 20 turnos completos)
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Enviamos los últimos 10 mensajes para que ADIA no olvide a Sasha ni el azul
-    for turno in historial[-10:]:
-        # Detectamos si el historial viene como lista o diccionario (Safe Unpack)
-        if isinstance(turno, dict):
-            u, b = turno["content"], turno.get("assistant", "") # Depende de la versión de Gradio
-        else:
-            u, b = turno[0], turno[1]
-        
-        if u: mensajes_ia.append({"role": "user", "content": u[:200]}) # Recorte preventivo
-        if b: mensajes_ia.append({"role": "assistant", "content": b[:200]})
+    # Procesamos el historial para que Groq lo entienda perfecto
+    for turno in historial[-40:]:
+        # Gradio puede enviar el historial como lista de listas [user, bot]
+        if isinstance(turno, (list, tuple)) and len(turno) == 2:
+            u, b = turno
+            if u: mensajes_ia.append({"role": "user", "content": u})
+            if b: mensajes_ia.append({"role": "assistant", "content": b})
+        # O como diccionario según la versión de Gradio
+        elif isinstance(turno, dict):
+            mensajes_ia.append({"role": turno.get("role", "user"), "content": turno.get("content", "")})
     
-    # Mensaje actual completo
+    # Añadimos el mensaje actual de Jorge
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
@@ -53,28 +51,33 @@ def adia_cerebro(mensaje, historial):
         completion = groq_client.chat.completions.create(
             model="openai/gpt-oss-120b", 
             messages=mensajes_ia,
-            temperature=0.4, # Punto dulce: inteligente pero no inventa
-            max_tokens=2000  # Respuesta profesional y directa
+            temperature=0.4,
+            max_tokens=2000 # Permitimos respuestas largas para que no se corte
         )
         return completion.choices[0].message.content
     except Exception as e:
-        # Plan B por si el 120B está muy lleno (usa el 70B como respaldo)
+        # Plan de Respaldo: Si el 120B falla, intenta con el 70B
         try:
             res_backup = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=mensajes_ia,
-                temperature=0.4
+                temperature=0.4,
+                max_tokens=1000
             )
             return res_backup.choices[0].message.content
         except:
-            return f"ADIA: Jorge, mis sistemas están saturados. Reintenta en 15 segundos. ({str(e)})"
+            return f"ADIA: Jorge, mis sistemas están en alta demanda (Rate Limit). Reintenta en 30 segundos. Error: {str(e)}"
 
-# 4. Interfaz de Gradio (Sin 'type' ni 'theme' para evitar errores)
+# 4. Interfaz de Gradio (Limpia para evitar TypeErrors en Render)
 with gr.Blocks() as demo:
-    gr.Markdown("# ADIA v5.0 - GPT-OSS 120B Edition")
-    gr.ChatInterface(fn=adia_cerebro, title="Sistema ADIA Profesional")
+    gr.Markdown("# ADIA v6.0 - GPT-OSS 120B & Tavily")
+    gr.ChatInterface(
+        fn=adia_cerebro,
+        title="Asistente ADIA Profesional",
+        description="Memoria expandida (40 mensajes) e inteligencia de 120B."
+    )
 
 if __name__ == "__main__":
-    # Render asigna el puerto dinámicamente
+    # Render requiere leer el puerto dinámico
     puerto = int(os.environ.get("PORT", 10000))
     demo.launch(server_name="0.0.0.0", server_port=puerto)
