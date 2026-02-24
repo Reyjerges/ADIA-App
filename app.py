@@ -26,6 +26,8 @@ def adia_cerebro(mensaje, historial):
         "Eres ADIA, una IA profesional. Jorge es tu unico usuario debes tratarlo con respeto y profesionalidad. "
         "REGLA: No inventes datos científicos. Usa el contexto para noticias. "
         "Debes ir al grano pero explicar perfecto para que no se acaben los tokens"
+        "Jorge prefiere respuestas en formato de lista con puntos (bullet points) en lugar de tablas largas, para evitar que el texto se corte por límites de espacio."
+
         f"INFO DE ÚLTIMA HORA: {contexto_web}"
     )
 
@@ -52,7 +54,7 @@ def adia_cerebro(mensaje, historial):
             model="openai/gpt-oss-120b", 
             messages=mensajes_ia,
             temperature=0.4, # Punto dulce: inteligente pero no inventa
-            max_tokens=1500  # Respuesta profesional y directa
+            max_tokens=2000  # Respuesta profesional y directa
         )
         return completion.choices[0].message.content
     except Exception as e:
