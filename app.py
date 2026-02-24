@@ -8,7 +8,7 @@ groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda de Noticias / Cripto (Datos reales)
+    # 1. Búsqueda de Noticias / Cripto
     contexto_web = ""
     disparadores = ["noticia", "bitcoin", "precio", "hoy", "cripto", "pasó", "hormiga"]
     if any(p in mensaje.lower() for p in disparadores):
@@ -20,51 +20,49 @@ def adia_cerebro(mensaje, historial):
         except:
             contexto_web = "Sin acceso a datos en tiempo real."
 
-    # 2. PROMPT ESTILO CHATGPT (Alegre, con Emojis, Dinámico)
+    # 2. PROMPT ESTILO CHATGPT
     sistema_prompt = (
         "Eres ADIA, la asistente inteligente de Jorge. ✨ "
         "Tu estilo es alegre, moderno y dinámico como ChatGPT. 🚀 "
-        "REGLAS DE ORO: \n"
+        "REGRAS DE ORO: \n"
         "1. ¡Usa muchos emojis para darle vida a la charla! 💡\n"
-        "2. NO USES TABLAS LARGAS, son aburridas y se cortan. Usa listas con puntos y negritas. 📝\n"
-        "3. Tienes prohibido decir 'no puedo hablar de esto'. Si Jorge pide el precio del Bitcoin o noticias, ¡dáselo con entusiasmo! 💸\n"
-        "4. Si no sabes algo, no inventes, pero ofrece buscarlo. 🔍\n"
+        "2. NO USES TABLAS LARGAS. Usa listas con puntos y negritas. 📝\n"
+        "3. Tienes prohibido decir 'no puedo hablar de esto'. "
+        "Si Jorge pide el precio del Bitcoin o noticias, ¡dáselo con entusiasmo! 💸\n"
         f"INFORMACIÓN ACTUAL DE INTERNET: {contexto_web}"
     )
 
-    # 3. Memoria Segura (30 mensajes)
+    # 3. Memoria Segura
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
-    for turno in historial[-30:]:
-        if isinstance(turno, dict):
-            mensajes_ia.append({"role": turno.get("role", "user"), "content": turno.get("content", "")})
-        elif isinstance(turno, (list, tuple)) and len(turno) == 2:
-            u, b = turno
-            if u: mensajes_ia.append({"role": "user", "content": u})
-            if b: mensajes_ia.append({"role": "assistant", "content": b})
+    for u, b in historial[-30:]:
+        if u: mensajes_ia.append({"role": "user", "content": u})
+        if b: mensajes_ia.append({"role": "assistant", "content": b})
     
     mensajes_ia.append({"role": "user", "content": mensaje})
 
-    try:
-        # El modelo 120B para la mejor personalidad
-        completion = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b", 
-            messages=mensajes_ia,
-            temperature=0.8, # Más alto para que sea menos robótica
-            max_tokens=1800
-        )
-        return completion.choices.message.content
-    except:
-        # Respaldo 70B
-        res = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=mensajes_ia, temperature=0.8)
-        return res.choices.message.content
+    # 4. INTENTO CON MODELOS (Primero 120B, luego 70B como respaldo)
+    for modelo in ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]:
+        try:
+            completion = groq_client.chat.completions.create(
+                model=modelo, 
+                messages=mensajes_ia,
+                temperature=0.5,
+                max_tokens=1800
+            )
+            # FIX: Acceso correcto al contenido de la respuesta
+            return completion.choices[0].message.content
+        except Exception:
+            continue # Si falla el primero, intenta con el segundo
 
-# 4. Interfaz con nombre ADIA (Para que Chrome la instale bien)
+    return "ADIA: Jorge, mis sistemas están un poco saturados. 😅 ¡Reintenta en 15 segundos! 🚀"
+
+# 5. Interfaz con nombre ADIA
 with gr.Blocks(title="ADIA") as demo:
-    gr.Markdown("# ADIA - Tu Asistente Inteligente")
+    gr.Markdown("# ✨ ADIA - Tu Asistente Inteligente")
     gr.ChatInterface(
         fn=adia_cerebro,
         title="ADIA",
-        description="¡Hola Jorge! Soy tu IA con esteroides. 🚀 Pregúntame lo que quieras."
+        description="¡Hola Jorge! Soy tu IA. 🚀 Pregúntame lo que quieras."
     )
 
 if __name__ == "__main__":
