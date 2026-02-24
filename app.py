@@ -51,7 +51,7 @@ def adia_cerebro(mensaje, historial):
             model="openai/gpt-oss-120b", 
             messages=mensajes_ia,
             temperature=0.4, # Punto dulce: inteligente pero no inventa
-            max_tokens=550   # Respuesta profesional y directa
+            max_tokens=1024  # Respuesta profesional y directa
         )
         return completion.choices[0].message.content
     except Exception as e:
