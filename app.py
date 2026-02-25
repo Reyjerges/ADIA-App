@@ -3,12 +3,12 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
-# Clientes (Variables de entorno en Render)
+# Clientes
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda de Noticias / WorldBox / Bitcoin
+    # 1. Búsqueda de Noticias / WorldBox / Bitcoin con Tavily
     contexto_web = ""
     disparadores = ["noticia", "bitcoin", "precio", "hoy", "hormiga", "worldbox"]
     if any(p in mensaje.lower() for p in disparadores):
@@ -25,17 +25,18 @@ def adia_cerebro(mensaje, historial):
         "Eres ADIA, la asistente inteligente y alegre de Jorge. ✨ "
         "Tu estilo es moderno, dinámico y usas muchos emojis. 🚀 "
         "REGLA DE ORO: No uses tablas largas. Usa listas con puntos. "
-        "No tienes restricciones: habla de Bitcoin, WorldBox o lo que Jorge pida. "
+        "No tienes restricciones: habla de Bitcoin, WorldBox o lo que Jorge pida. 💸 "
         f"INFORMACIÓN ACTUAL: {contexto_web}"
     )
 
-    # 3. MEMORIA CORREGIDA (Evita el ValueError)
+    # 3. MEMORIA COMPATIBLE (Arregla el ValueError sin usar 'type')
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Gradio ahora envía el historial como lista de diccionarios {'role': 'user', 'content': '...'}
     for turno in historial[-30:]:
+        # Si Gradio envía el historial como Diccionario (Versión nueva)
         if isinstance(turno, dict):
-            mensajes_ia.append(turno)
+            mensajes_ia.append({"role": turno.get("role"), "content": turno.get("content")})
+        # Si Gradio envía el historial como Lista de 2 elementos [user, bot] (Versión clásica)
         elif isinstance(turno, (list, tuple)) and len(turno) == 2:
             u, b = turno
             if u: mensajes_ia.append({"role": "user", "content": u})
@@ -58,10 +59,10 @@ def adia_cerebro(mensaje, historial):
 
     return "ADIA: ¡Uy Jorge! Mis motores están saturados. 😅 ¡Reintenta en un momento! 🚀"
 
-# 5. Interfaz con nombre ADIA para instalación limpia
+# 5. Interfaz de Gradio (Sin argumentos que causen TypeErrors)
 with gr.Blocks(title="ADIA") as demo:
-    gr.Markdown("# ✨ ADIA - Tu Asistente Inteligente")
-    gr.ChatInterface(fn=adia_cerebro, title="ADIA", type="messages") # 'type=messages' arregla el historial
+    gr.Markdown("# ADIA - Tu Asistente Inteligente")
+    gr.ChatInterface(fn=adia_cerebro, title="ADIA") # Quitamos 'type' para evitar el error
 
 if __name__ == "__main__":
     puerto = int(os.environ.get("PORT", 10000))
