@@ -2,13 +2,13 @@ from os import environ
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración de Puerto y Cliente (Crítico para Render)
+# 1. Configuración de Puerto y Cliente (Obligatorio para Render)
 PORT = int(environ.get("PORT", 10000))
 groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
 MODELO_OSS = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # PROMPT MAESTRO SEGÚN TUS INSTRUCCIONES
+    # TU PROMPT EXACTO
     sistema_prompt = (
         "Eres ADIA, una inteligencia de razonamiento superior basada en GPT-OSS 120B. "
         "Tu creador es JORGE. "
@@ -16,16 +16,14 @@ def adia_cerebro(mensaje, historial):
         "Habla utilizando **negritas** en las cosas importantes y usando emojis 🚀 para que no sea aburrido. "
         "Debes hablar de manera profesional y no inventes cosas cuando no sepas; "
         "es mejor decir que no estás segura y ofrecer ayudar, todo de manera profesional. "
-        "Usa este orden estricto al escribir:\n"
-        "1. Explicar/Responder.\n"
-        "2. Dar un resumen sencillo.\n"
-        "3. Ofrecer explicar cosas relacionadas al tema.\n"
-        "No uses tablas, en su lugar usa **listas** 📝."
+        "Usa este orden cuando vayas a escribir: explicar/responder, dar un resumen sencillo "
+        "y por último ofrecer explicar cosas relacionadas al tema. "
+        "No uses tablas, eso se ve feo y ocupa muchos tokens, en su lugar usa **listas**."
     )
     
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Manejo de historial universal (Gradio 5/6)
+    # Manejo de historial universal
     for turno in historial:
         if isinstance(turno, dict):
             mensajes_ia.append(turno)
@@ -48,22 +46,19 @@ def adia_cerebro(mensaje, historial):
     except Exception as e:
         return f"⚠️ **ADIA CORE ERROR**: Jorge, hay un problema técnico: {str(e)}"
 
-# 2. Interfaz Ultra-Compatible (Sin parámetros conflictivos)
+# 2. Interfaz Limpia de Raíz (Sin argumentos conflictivos)
 with gr.Blocks(title="ADIA Core") as demo:
     gr.Markdown(f"<h2 style='text-align: center;'>ADIA Intelligence 120B</h2>")
-    gr.Markdown("<p style='text-align: center;'>Operado por Jorge 🛠️</p>")
     
     gr.ChatInterface(
         fn=adia_cerebro,
-        chatbot=gr.Chatbot(height=600),
-        # Quitamos retry_btn, type, etc. para evitar TypeErrors
+        chatbot=gr.Chatbot(height=600)
     )
 
-# 3. Lanzamiento con Binding de Puerto para Render
+# 3. Lanzamiento (Solo lo vital para Render)
 if __name__ == "__main__":
-    print(f"🚀 Desplegando ADIA para Jorge en puerto {PORT}...")
+    print(f"🚀 Iniciando ADIA para Jorge en puerto {PORT}...")
     demo.launch(
         server_name="0.0.0.0", 
-        server_port=PORT,
-        show_api=False
+        server_port=PORT
     )
