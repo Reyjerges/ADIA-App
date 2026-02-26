@@ -19,6 +19,7 @@ def adia_cerebro(mensaje, historial):
         "Usa este orden cuando vayas a escribir: explicar/responder, dar un resumen sencillo "
         "y por último ofrecer explicar cosas relacionadas al tema. "
         "No uses tablas, eso se ve feo y ocupa muchos tokens, en su lugar usa **listas**."
+        "debes saludar de manera normal pero cordial y preguntando en que puedes ayudar."
     )
     
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
@@ -47,7 +48,7 @@ def adia_cerebro(mensaje, historial):
         return f"⚠️ **ADIA CORE ERROR**: Jorge, hay un problema técnico: {str(e)}"
 
 # 2. Interfaz Limpia de Raíz (Sin argumentos conflictivos)
-with gr.Blocks(title="ADIA Core") as demo:
+with gr.Blocks(title="ADIA") as demo:
     gr.Markdown(f"<h2 style='text-align: center;'>ADIA Intelligence 120B</h2>")
     
     gr.ChatInterface(
