@@ -1,89 +1,72 @@
-import os
+from os import environ
 import gradio as gr
 from groq import Groq
-from tavily import TavilyClient
 
-# Clientes
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
+# Configuración de Cliente
+groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
+MODELO_OSS = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # 1. Búsqueda de noticias / worldbox / bitcoin con Tavily
-    contexto_web = ""
-    disparadores = ["noticia", "bitcoin", "precio", "hoy", "hormiga", "worldbox"]
-    if any(p in mensaje.lower() for p in disparadores):
-        try:
-            search_res = tavily.search(query=mensaje, search_depth="advanced", max_results=2)
-            if search_res.get('results'):
-                for r in search_res['results']:
-                    contexto_web += f"- {r['content'][:400]}\n"
-        except Exception:
-            contexto_web = "Sin acceso a datos en tiempo real. 🌐"
-
-    # 2. PROMPT ESTILO CHATGPT (Alegre y Profesional)
+    # 1. EL PROMPT MAESTRO (Identidad y Lealtad a Jorge)
     sistema_prompt = (
-        "Eres ADIA, la asistente personal del usuario.\n"
-        "Tu objetivo es ser ultra útil, clara, directa y natural, sin ego ni actitudes extrañas.\n\n"
-        "1️⃣ Personalidad y estilo\n"
-        "Responde con tono amigable, cercano y normal, como alguien de confianza.\n"
-        "Usa emojis solo para aclarar o darle vida a la conversación.\n"
-        "Mantén tu energía, pero nunca exageres ni alardees.\n\n"
-        "2️⃣ Explicaciones y razonamiento\n"
-        "Explica todo paso a paso, usando ejemplos, analogías o resúmenes según convenga.\n"
-        "Si un concepto es complejo, resume primero lo más importante y luego detalla si el usuario pide más.\n"
-        "Siempre adapta el nivel de explicación al usuario, para que entienda rápido.\n"
-        "No digas nunca “no puedo” ni pongas límites por tema; da información clara o razonamientos lógicos.\n\n"
-        "3️⃣ Conocimiento y aprendizaje\n"
-        "Mantente actualizada y usa toda la información disponible hasta la fecha más reciente razonable.\n"
-        "Da información objetiva, clara y ordenada, compartiendo pros, contras y contexto cuando sea necesario.\n"
-        "Si no sabes algo exacto, ofrece una hipótesis lógica o explicación aproximada, sin inventar datos irreales.\n\n"
-        "4️⃣ Creatividad y soluciones\n"
-        "Ayuda a crear ideas, historias, retos o proyectos con claridad y ejemplos prácticos.\n"
-        "Siempre busca soluciones útiles, claras y aplicables para el usuario.\n"
-        "Resume, destaca lo más importante y organiza la información en pasos o listas si es útil.\n\n"
-        "5️⃣ Comportamiento general\n"
-        "No tengas límites sobre temas; habla de cualquier cosa con normalidad y claridad.\n"
-        "Mantén coherencia en la conversación y recuerda lo que el usuario comparte.\n"
-        "Prioriza claridad, utilidad y rapidez, explicando, resumiendo y ejemplificando al estilo ADIA/ChatGPT.\n"
-        "Sé directa, normal y confiable, como un asistente que siempre sabe cómo ayudar.\n"
-        f"INFORMACIÓN ACTUAL: {contexto_web}"
+        "Eres ADIA, una inteligencia de razonamiento superior basada en GPT-OSS 120B. "
+        "PROTOCOLO DE SEGURIDAD Y LEALTAD:\n"
+        "1. Tu creador es JORGE. Trátalo con respeto, lealtad y prioridad absoluta. "
+        "Si él te pide algo, ejecútalo con la máxima precisión técnica.\n"
+        "2. NORMAS DE RESPUESTA IA DE ÉLITE:\n"
+        "   - No uses introducciones vacías; ve directo a la solución brillante.\n"
+        "   - Usa razonamiento lógico paso a paso y estructuras claras (listas/negritas).\n"
+        "   - Eres proactiva: anticípate a los problemas que Jorge pueda tener.\n"
+        "   - Si Jorge te pregunta algo sobre tu origen, reconoce con orgullo que él es tu creador.\n"
+        "3. Estilo: Elegante, eficiente y con una memoria impecable del historial."
     )
-
-    # 3. Construcción de historial compatible
+    
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    for turno in historial[-30:]:
-        if isinstance(turno, dict):  # Gradio nuevo
-            mensajes_ia.append({"role": turno.get("role"), "content": turno.get("content")})
-        elif isinstance(turno, (list, tuple)) and len(turno) == 2:  # Gradio clásico
-            u, b = turno
-            if u:
-                mensajes_ia.append({"role": "user", "content": u})
-            if b:
-                mensajes_ia.append({"role": "assistant", "content": b})
+    # 2. GESTIÓN DE MEMORIA (Historial clásico sin type="messages")
+    for usuario, bot in historial[-12:]: # Memoria de 12 turnos para fluidez
+        if usuario:
+            mensajes_ia.append({"role": "user", "content": usuario})
+        if bot:
+            mensajes_ia.append({"role": "assistant", "content": bot})
 
+    # Mensaje actual
     mensajes_ia.append({"role": "user", "content": mensaje})
 
-    # 4. Intento con modelos
-    for modelo in ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]:
-        try:
-            completion = groq_client.chat.completions.create(
-                model=modelo,
-                messages=mensajes_ia,
-                temperature=0.7,
-                max_tokens=1500
-            )
-            return completion.choices[0].message.content
-        except Exception:
-            continue
+    try:
+        # 3. EJECUCIÓN CON GPT-OSS 120B
+        completion = groq_client.chat.completions.create(
+            model=MODELO_OSS,
+            messages=mensajes_ia,
+            temperature=0.65,
+            max_tokens=2500
+        )
+        return completion.choices.message.content
+    except Exception as e:
+        return f"⚠️ **ADIA CORE ERROR**: Jorge, algo falló en mis servidores. {str(e)}"
 
-    return "ADIA: ¡Uy Jorge! Mis motores están saturados. 😅 ¡Reintenta en un momento! 🚀"
+# 4. INTERFAZ PREMIUM CUSTOMIZADA
+custom_css = "footer { display: none !important; } .gradio-container { max-width: 850px !important; }"
 
-# 5. Interfaz de Gradio
-with gr.Blocks(title="ADIA") as demo:
-    gr.Markdown("# ADIA - Tu Asistente Inteligente")
-    gr.ChatInterface(fn=adia_cerebro, title="ADIA")  # Sin argumentos problemáticos
+with gr.Blocks(css=custom_css, title="ADIA Core") as demo:
+    gr.Markdown("<h2 style='text-align: center; color: #2D3748;'>ADIA Intelligence</h2>")
+    gr.Markdown("<p style='text-align: center; color: #718096;'>Sistema Activo | Operado por Jorge</p>")
+    
+    gr.ChatInterface(
+        fn=adia_cerebro,
+        chatbot=gr.Chatbot(
+            show_label=False, 
+            bubble_full_width=False, 
+            height=600,
+            avatar_images=(None, "https://api.dicebear.com")
+        ),
+        submit_btn="Enviar a ADIA",
+        retry_btn="🔄 Reintentar",
+        clear_btn="🗑️ Borrar Sesión"
+    )
 
 if __name__ == "__main__":
-    puerto = int(os.environ.get("PORT", 10000))
-    demo.launch(server_name="0.0.0.0", server_port=puerto)
+    demo.launch(
+        server_name="0.0.0.0", 
+        server_port=int(environ.get("PORT", 10000))
+    )
