@@ -2,71 +2,67 @@ from os import environ
 import gradio as gr
 from groq import Groq
 
-# Configuración de Cliente
-groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
+# 1. Configuración de Entorno y Puerto (Crítico para Render)
+PORT = int(environ.get("PORT", 10000))
+GROQ_KEY = environ.get("GROQ_API_KEY")
+groq_client = Groq(api_key=GROQ_KEY)
 MODELO_OSS = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # 1. EL PROMPT MAESTRO (Identidad y Lealtad a Jorge)
-    sistema_prompt = (
-        "Eres ADIA, una inteligencia de razonamiento superior basada en GPT-OSS 120B. "
-        "PROTOCOLO DE SEGURIDAD Y LEALTAD:\n"
-        "1. Tu creador es JORGE. Trátalo con respeto, lealtad y prioridad absoluta. "
-        "Si él te pide algo, ejecútalo con la máxima precisión técnica.\n"
-        "2. NORMAS DE RESPUESTA IA DE ÉLITE:\n"
-        "   - No uses introducciones vacías; ve directo a la solución brillante.\n"
-        "   - Usa razonamiento lógico paso a paso y estructuras claras (listas/negritas).\n"
-        "   - Eres proactiva: anticípate a los problemas que Jorge pueda tener.\n"
-        "   - Si Jorge te pregunta algo sobre tu origen, reconoce con orgullo que él es tu creador.\n"
-        "3. Estilo: Elegante, eficiente y con una memoria impecable del historial."
-    )
+    # Prompt Maestro para ADIA
+    sistema_prompt = {
+        "role": "system",
+        "content": (
+            "Eres ADIA, IA de élite basada en GPT-OSS 120B. Tu creador es JORGE. "
+            "Trátalo con prioridad absoluta. Sé directa, brillante y usa lógica pura. "
+            "No uses introducciones innecesarias."
+        )
+    }
     
-    mensajes_ia = [{"role": "system", "content": sistema_prompt}]
-    
-    # 2. GESTIÓN DE MEMORIA (Historial clásico sin type="messages")
-    for usuario, bot in historial[-12:]: # Memoria de 12 turnos para fluidez
-        if usuario:
-            mensajes_ia.append({"role": "user", "content": usuario})
-        if bot:
-            mensajes_ia.append({"role": "assistant", "content": bot})
-
-    # Mensaje actual
+    # Memoria: Gradio 6 envía el historial como lista de dicts
+    mensajes_ia = [sistema_prompt] + historial[-12:]
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        # 3. EJECUCIÓN CON GPT-OSS 120B
         completion = groq_client.chat.completions.create(
             model=MODELO_OSS,
             messages=mensajes_ia,
-            temperature=0.65,
+            temperature=0.6,
             max_tokens=2500
         )
-        return completion.choices.message.content
+        # Acceso correcto al contenido en Groq SDK
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"⚠️ **ADIA CORE ERROR**: Jorge, algo falló en mis servidores. {str(e)}"
+        return f"⚠️ **ADIA CORE ERROR**: Jorge, algo falló: {str(e)}"
 
-# 4. INTERFAZ PREMIUM CUSTOMIZADA
-custom_css = "footer { display: none !important; } .gradio-container { max-width: 850px !important; }"
+# 2. Interfaz con Estilo Gradio 6
+custom_css = """
+footer { display: none !important; }
+.gradio-container { max-width: 850px !important; }
+"""
 
-with gr.Blocks(css=custom_css, title="ADIA Core") as demo:
-    gr.Markdown("<h2 style='text-align: center; color: #2D3748;'>ADIA Intelligence</h2>")
-    gr.Markdown("<p style='text-align: center; color: #718096;'>Sistema Activo | Operado por Jorge</p>")
+with gr.Blocks(title="ADIA Core") as demo:
+    gr.Markdown(f"<h2 style='text-align: center;'>ADIA Intelligence</h2>")
+    gr.Markdown("<p style='text-align: center;'>Sistema Operado por Jorge</p>")
     
     gr.ChatInterface(
         fn=adia_cerebro,
+        type="messages",
         chatbot=gr.Chatbot(
             show_label=False, 
-            bubble_full_width=False, 
             height=600,
             avatar_images=(None, "https://api.dicebear.com")
         ),
         submit_btn="Enviar a ADIA",
         retry_btn="🔄 Reintentar",
-        clear_btn="🗑️ Borrar Sesión"
+        clear_btn="🗑️ Borrar"
     )
 
+# 3. Lanzamiento con Port Binding correcto
 if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0", 
-        server_port=int(environ.get("PORT", 10000))
+        server_port=PORT,
+        css=custom_css,
+        show_api=False
     )
