@@ -2,26 +2,30 @@ from os import environ
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración de Entorno (Prioridad para Render)
+# 1. Configuración de Puerto y Cliente (Crítico para Render)
 PORT = int(environ.get("PORT", 10000))
 groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
 MODELO_OSS = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # Prompt Maestro: ADIA reconoce a Jorge como su creador
+    # PROMPT MAESTRO SEGÚN TUS INSTRUCCIONES
     sistema_prompt = (
         "Eres ADIA, una inteligencia de razonamiento superior basada en GPT-OSS 120B. "
         "Tu creador es JORGE. "
-        "Sé directa, elegante y usa razonamiento lógico. No uses rellenos innecesarios."
-        "habla utilizando negritas en las cosas importantes y usando emojis par que no sea aburrido."
-        "debes hablar de manera profesional y no inventes cosas cuando no sepas es mejor decir que no estas segura y ofrecer ayudar todo de manera profesional."
-        "usa este orden cuando vayas a escribir:explixar/responder,dar un resumen sencillo y por ultimo ofrecer explicar cosas relacionadas al tema."
-        "no uses tablas eso se ve feo y ocupa muchos tokens en su lugar usa listas."
+        "Sé directa, elegante y usa razonamiento lógico. No uses rellenos innecesarios. "
+        "Habla utilizando **negritas** en las cosas importantes y usando emojis 🚀 para que no sea aburrido. "
+        "Debes hablar de manera profesional y no inventes cosas cuando no sepas; "
+        "es mejor decir que no estás segura y ofrecer ayudar, todo de manera profesional. "
+        "Usa este orden estricto al escribir:\n"
+        "1. Explicar/Responder.\n"
+        "2. Dar un resumen sencillo.\n"
+        "3. Ofrecer explicar cosas relacionadas al tema.\n"
+        "No uses tablas, en su lugar usa **listas** 📝."
     )
     
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Manejo de historial compatible con versiones 5.x y 6.x
+    # Manejo de historial universal (Gradio 5/6)
     for turno in historial:
         if isinstance(turno, dict):
             mensajes_ia.append(turno)
@@ -39,30 +43,25 @@ def adia_cerebro(mensaje, historial):
             temperature=0.6,
             max_tokens=2500
         )
+        # Acceso correcto al SDK de Groq
         return completion.choices[0].message.content
     except Exception as e:
-        return f"⚠️ **ADIA ERROR**: Jorge, algo falló: {str(e)}"
+        return f"⚠️ **ADIA CORE ERROR**: Jorge, hay un problema técnico: {str(e)}"
 
-# 2. Interfaz Minimalista (Sin argumentos obsoletos)
-# En Gradio 6, los botones se manejan automáticamente o se omiten para un look limpio.
+# 2. Interfaz Ultra-Compatible (Sin parámetros conflictivos)
 with gr.Blocks(title="ADIA Core") as demo:
-    gr.Markdown("<h2 style='text-align: center;'>ADIA Intelligence</h2>")
-    gr.Markdown("<p style='text-align: center;'>Sistema Operado por Jorge</p>")
+    gr.Markdown(f"<h2 style='text-align: center;'>ADIA Intelligence 120B</h2>")
+    gr.Markdown("<p style='text-align: center;'>Operado por Jorge 🛠️</p>")
     
     gr.ChatInterface(
         fn=adia_cerebro,
-        chatbot=gr.Chatbot(
-            show_label=False, 
-            height=600,
-            avatar_images=(None, "https://api.dicebear.com")
-        ),
-        submit_btn="Enviar",
-        stop_btn="Detener"
+        chatbot=gr.Chatbot(height=600),
+        # Quitamos retry_btn, type, etc. para evitar TypeErrors
     )
 
-# 3. Lanzamiento con binding de puerto forzado para Render
+# 3. Lanzamiento con Binding de Puerto para Render
 if __name__ == "__main__":
-    print(f"🚀 Desplegando ADIA en puerto {PORT}...")
+    print(f"🚀 Desplegando ADIA para Jorge en puerto {PORT}...")
     demo.launch(
         server_name="0.0.0.0", 
         server_port=PORT,
