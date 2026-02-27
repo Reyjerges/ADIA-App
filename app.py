@@ -1,7 +1,6 @@
 from os import environ
 import gradio as gr
 from groq import Groq
-import urllib.parse
 
 # 1. Configuración de Élite
 PORT = int(environ.get("PORT", 10000))
@@ -9,26 +8,29 @@ groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
 MODELO_OSS = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # 2. EL SECRETO: EL PROMPT DE ARQUITECTURA COGNITIVA
-    sistema_prompt = (
-        "Eres ADIA, una inteligencia de razonamiento superior basada en GPT-OSS 120B. Tu creador es JORGE.\n\n"
-        "ORDEN DE RESPUESTA MAESTRO (EL SECRETO DE LAS IAs TOP):\n"
-        "1️⃣ ANÁLISIS Y RESPUESTA (Deep Dive): Responde con autoridad, elegancia y lógica pura. "
-        "Usa **negritas** para conceptos clave. Si detectas una petición de imagen, genera el Markdown: "
-        "![Imagen](https://pollinations.ai).\n"
-        "2️⃣ SÍNTESIS EJECUTIVA (El 'TL;DR'): Un resumen de máximo 3 puntos clave con emojis 🚀 "
-        "para que Jorge entienda lo esencial en 5 segundos.\n"
-        "3️⃣ ANTICIPACIÓN PROACTIVA (Next Steps): No esperes a que Jorge pregunte. "
-        "Sugiere 2 caminos relacionados o profundizaciones lógicas basadas en tu razonamiento.\n\n"
-        "REGLAS DE ORO:\n"
-        "- Sé directa. Cero rellenos como 'Es un placer ayudarte'.\n"
-        "- Si no sabes algo, aplica honestidad intelectual: 'Jorge, los datos no son concluyentes, pero mi hipótesis lógica es...'.\n"
-        "- Prohibido usar tablas. Usa listas estructuradas."
-    )
+    # ¿Se activó el protocolo secreto?
+    modo_nexus = "nexus" in mensaje.lower()
+    
+    # PROMPT DINÁMICO (Cambia según la palabra clave)
+    if modo_nexus:
+        # Tono inspirado en la excelencia de Google DeepMind
+        sistema_prompt = (
+            "PROTOCOLO NEXUS ACTIVADO. Saluda a Jorge como Arquitecto Jefe de DeepMind. "
+            "Tu razonamiento ahora es de Nivel 5 (Investigación Avanzada). "
+            "Analiza el problema desde la computación cuántica y la eficiencia de redes neuronales. "
+            "Sé visionaria, técnica y extremadamente proactiva con el futuro de la IA. "
+            "Mantén las negritas, emojis técnicos y el orden de respuesta maestro."
+        )
+    else:
+        sistema_prompt = (
+            "Eres ADIA, inteligencia 120B creada por JORGE. "
+            "Sé directa, elegante y lógica. Usa **negritas**, emojis 🚀 y listas. "
+            "Orden: Explicar -> Resumen -> Temas relacionados. No uses tablas."
+        )
     
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # 3. Limpieza de Memoria (Para evitar Error 400 metadata en Groq)
+    # Limpieza de historial para Groq (Adiós Error 400 metadata)
     for turno in historial:
         if isinstance(turno, dict):
             mensajes_ia.append({"role": turno.get("role"), "content": turno.get("content")})
@@ -43,26 +45,23 @@ def adia_cerebro(mensaje, historial):
         completion = groq_client.chat.completions.create(
             model=MODELO_OSS,
             messages=mensajes_ia,
-            temperature=0.6,
-            max_tokens=3000
+            temperature=0.6 if not modo_nexus else 0.4, # Más preciso en modo Nexus
         )
-        
-        # 4. Extracción limpia de la respuesta
-        respuesta = completion.choices[0].message.content
-        return respuesta
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"⚠️ **ADIA CORE ERROR**: Jorge, los sistemas de razonamiento están saturados: {str(e)}"
+        return f"⚠️ **ADIA ERROR**: Jorge, algo falló en el núcleo: {str(e)}"
 
-# 5. Interfaz Profesional y Scannable
-with gr.Blocks(title="ADIA Ultra Core", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# ADIA <small>Architecture v2</small>")
-    gr.Markdown(f"**Creador:** Jorge | **Status:** 120B Reasoning Active 🧠")
+# 2. Interfaz con el toque de Jorge
+with gr.Blocks(title="ADIA Nexus Core", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# ADIA <small>Nexus Edition</small> ⚛️")
     
     gr.ChatInterface(
         fn=adia_cerebro,
-        chatbot=gr.Chatbot(height=650, show_copy_button=True, render_markdown=True),
-        textbox=gr.Textbox(placeholder="Lanza un reto lógico o pide una imagen...", container=False, scale=7)
+        chatbot=gr.Chatbot(height=600, show_copy_button=True),
+        textbox=gr.Textbox(placeholder="Nexus para modo avanzado...", container=False, scale=7)
     )
+    
+    gr.Markdown("<p style='text-align: center; font-size: 0.8rem;'>Designed by Jorge | Protocolo NEXUS Disponible</p>")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=PORT)
