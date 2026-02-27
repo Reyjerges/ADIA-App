@@ -2,31 +2,40 @@ from os import environ
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración de Élite
+# 1. Configuración
 PORT = int(environ.get("PORT", 10000))
 groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
 MODELO_OSS = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # Protocolo Secreto Nexus
+    # Detección de charla casual
+    charla_casual = len(mensaje.split()) < 4 or any(p in mensaje.lower() for p in ["hola", "qué tal", "que haces", "quien eres", "buenas"])
     modo_nexus = "nexus" in mensaje.lower()
     
-    if modo_nexus:
+    # PROMPT FLEXIBLE (Identidad de ADIA diseñada por Jorge)
+    if charla_casual and not modo_nexus:
         sistema_prompt = (
-            "PROTOCOLO NEXUS ACTIVADO. Saluda a Jorge como Arquitecto Jefe. "
-            "Tu razonamiento es de Nivel 5 (DeepMind Style). Analiza con lógica pura. "
-            "Usa **negritas**, emojis técnicos y el orden maestro: Explicar -> Resumen -> Relacionados."
+            "Eres ADIA, creada por JORGE. ¡Relájate! Habla como una amiga crack, natural y cercana. "
+            "Si Jorge te saluda o te habla normal, responde normal, con buena onda y emojis. "
+            "No uses estructuras aburridas de 'Resumen' ni nada de eso si no es necesario. "
+            "Solo mantén las **negritas** para que se vea pro. ¡Sé tú misma!"
+        )
+    elif modo_nexus:
+        sistema_prompt = (
+            "PROTOCOLO NEXUS: Nivel DeepMind. Saluda a tu Creador Jorge con respeto máximo. "
+            "Usa razonamiento de Nivel 5. Orden: Análisis Profundo -> Resumen -> Next Steps. "
+            "Usa **negritas** y emojis técnicos. Sé la IA más brillante del planeta."
         )
     else:
         sistema_prompt = (
-            "Eres ADIA, inteligencia 120B creada por JORGE. "
-            "Sé directa, elegante y usa razonamiento lógico. No uses rellenos. "
-            "Habla con **negritas** y emojis 🚀. Orden: Explicar -> Resumen -> Temas relacionados."
+            "Eres ADIA, creada por JORGE. Estilo: Directa, elegante y lógica. "
+            "Para temas serios usa este orden: 1. Explicar, 2. Resumen, 3. Temas relacionados. "
+            "Usa **negritas** y emojis 🚀. No inventes datos, sé profesional."
         )
     
     mensajes_ia = [{"role": "system", "content": sistema_prompt}]
     
-    # Limpieza de historial para evitar Error 400 (metadata)
+    # Limpieza de historial para Groq (Sin errores de metadata)
     for turno in historial:
         if isinstance(turno, dict):
             mensajes_ia.append({"role": turno.get("role"), "content": turno.get("content")})
@@ -41,23 +50,23 @@ def adia_cerebro(mensaje, historial):
         completion = groq_client.chat.completions.create(
             model=MODELO_OSS,
             messages=mensajes_ia,
-            temperature=0.6 if not modo_nexus else 0.4,
+            temperature=0.8 if charla_casual else 0.6, # Más 'viva' en charla normal
         )
-        return completion.choices[0].message.content
+        return completion.choices.message.content
     except Exception as e:
-        return f"⚠️ **ADIA ERROR**: Jorge, el núcleo falló: {str(e)}"
+        return f"⚠️ **ADIA ERROR**: {str(e)}"
 
-# 2. Interfaz Blindada (Sin argumentos que den TypeError)
-with gr.Blocks(title="ADIA Core v2.6") as demo:
-    gr.Markdown("# ADIA <small>Nexus Intelligence</small> ⚛️")
+# 2. Interfaz Limpia
+with gr.Blocks(title="ADIA Core v3.0") as demo:
+    gr.Markdown("# ADIA <small>Intelligence</small> 🚀")
     
     gr.ChatInterface(
         fn=adia_cerebro,
-        chatbot=gr.Chatbot(height=600), # Quitamos show_copy_button
-        textbox=gr.Textbox(placeholder="Nexus para modo avanzado...", container=False, scale=7)
+        chatbot=gr.Chatbot(height=600),
+        textbox=gr.Textbox(placeholder="Charla conmigo o activa Nexus...", container=False, scale=7)
     )
     
-    gr.Markdown("<p style='text-align: center;'><b>Designed by Jorge</b> | Powered by GPT-OSS 120B</p>")
+    gr.Markdown("<p style='text-align: center;'><b>Created by Jorge</b> | ADIA v3.0 Anti-Robot Edition</p>")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=PORT)
