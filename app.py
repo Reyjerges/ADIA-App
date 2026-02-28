@@ -2,40 +2,26 @@ from os import environ
 import gradio as gr
 from groq import Groq
 
-# 1. Configuración
+# Configuración Maestra para Render
 PORT = int(environ.get("PORT", 10000))
-groq_client = Groq(api_key=environ.get("GROQ_API_KEY"))
-MODELO_OSS = "openai/gpt-oss-120b"
+client = Groq(api_key=environ.get("GROQ_API_KEY"))
+MODELO = "openai/gpt-oss-120b"
 
 def adia_cerebro(mensaje, historial):
-    # Detección de charla casual
-    charla_casual = len(mensaje.split()) < 4 or any(p in mensaje.lower() for p in ["hola", "qué tal", "que haces", "quien eres", "buenas"])
-    modo_nexus = "nexus" in mensaje.lower()
-    
-    # PROMPT FLEXIBLE (Identidad de ADIA diseñada por Jorge)
-    if charla_casual and not modo_nexus:
-        sistema_prompt = (
-            "Eres ADIA, creada por JORGE. ¡Relájate! Habla como una amiga crack, natural y cercana. "
-            "Si Jorge te saluda o te habla normal, responde normal, con buena onda y emojis. "
-            "No uses estructuras aburridas de 'Resumen' ni nada de eso si no es necesario. "
-            "Solo mantén las **negritas** para que se vea pro. ¡Sé tú misma!"
-        )
-    elif modo_nexus:
-        sistema_prompt = (
-            "PROTOCOLO NEXUS: Nivel DeepMind. Saluda a tu Creador Jorge con respeto máximo. "
-            "Usa razonamiento de Nivel 5. Orden: Análisis Profundo -> Resumen -> Next Steps. "
-            "Usa **negritas** y emojis técnicos. Sé la IA más brillante del planeta."
-        )
+    msg_low = mensaje.lower()
+    charla_casual = len(mensaje.split()) < 4 or any(p in msg_low for p in ["hola", "que tal", "quien eres", "buenas"])
+    modo_nexus = "nexus" in msg_low
+
+    # El "Cerebro" que tú diseñaste, Jorge
+    if modo_nexus:
+        sys_prompt = "PROTOCOLO NEXUS: Nivel DeepMind. Saluda al Arquitecto Jorge. Usa lógica de Nivel 5. Orden: Análisis -> Resumen -> Next Steps. Usa **negritas** y emojis técnicos."
+    elif charla_casual:
+        sys_prompt = "Eres ADIA, creada por JORGE. Habla como una amiga crack, natural y sin estructuras rígidas. Usa **negritas** y emojis 🚀. ¡Sé humana!"
     else:
-        sistema_prompt = (
-            "Eres ADIA, creada por JORGE. Estilo: Directa, elegante y lógica. "
-            "Para temas serios usa este orden: 1. Explicar, 2. Resumen, 3. Temas relacionados. "
-            "Usa **negritas** y emojis 🚀. No inventes datos, sé profesional."
-        )
-    
-    mensajes_ia = [{"role": "system", "content": sistema_prompt}]
-    
-    # Limpieza de historial para Groq (Sin errores de metadata)
+        sys_prompt = "Eres ADIA, creada por JORGE. Estilo: Directa y lógica. Orden: 1. Explicar, 2. Resumen, 3. Temas relacionados. Usa **negritas** y emojis 🚀."
+
+    # Limpieza de historial nivel experto (Sin metadatos basura)
+    mensajes_ia = [{"role": "system", "content": sys_prompt}]
     for turno in historial:
         if isinstance(turno, dict):
             mensajes_ia.append({"role": turno.get("role"), "content": turno.get("content")})
@@ -47,26 +33,17 @@ def adia_cerebro(mensaje, historial):
     mensajes_ia.append({"role": "user", "content": mensaje})
 
     try:
-        completion = groq_client.chat.completions.create(
-            model=MODELO_OSS,
-            messages=mensajes_ia,
-            temperature=0.8 if charla_casual else 0.6, # Más 'viva' en charla normal
-        )
-        return completion.choices.message.content
+        completion = client.chat.completions.create(model=MODELO, messages=mensajes_ia, temperature=0.7)
+        # Acceso corregido para evitar fallos de objeto
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"⚠️ **ADIA ERROR**: {str(e)}"
+        return f"⚠️ **ADIA ERROR**: Jorge, hay un fallo en el núcleo: {str(e)}"
 
-# 2. Interfaz Limpia
-with gr.Blocks(title="ADIA Core v3.0") as demo:
+# Interfaz limpia sin argumentos obsoletos
+with gr.Blocks(title="ADIA Nexus") as demo:
     gr.Markdown("# ADIA <small>Intelligence</small> 🚀")
-    
-    gr.ChatInterface(
-        fn=adia_cerebro,
-        chatbot=gr.Chatbot(height=600),
-        textbox=gr.Textbox(placeholder="Charla conmigo o activa Nexus...", container=False, scale=7)
-    )
-    
-    gr.Markdown("<p style='text-align: center;'><b>Created by Jorge</b> | ADIA v3.0 Anti-Robot Edition</p>")
+    gr.ChatInterface(fn=adia_cerebro, chatbot=gr.Chatbot(height=600), type="messages")
+    gr.Markdown("<p style='text-align: center;'><b>Designed by Jorge</b> | ADIA v4.0 Perfected</p>")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=PORT)
