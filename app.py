@@ -1,53 +1,69 @@
-from os import environ
-import gradio as gr
+import os
+from fastapi import FastAPI, Form, Header, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
+from tavily import TavilyClient
 
-# Configuración de Puerto para Render
-PORT = int(environ.get("PORT", 10000))
-# Asegúrate de tener GROQ_API_KEY en las Environment Variables de Render
-client = Groq(api_key=environ.get("GROQ_API_KEY"))
-MODELO = "llama-3.3-70b-versatile"
+app = FastAPI(title="ADIA Secure Engine")
 
-def adia_cerebro(mensaje, historial):
-    msg_low = mensaje.lower()
-    charla_casual = len(mensaje.split()) < 5 or any(p in msg_low for p in ["hola", "que tal", "que haces", "quien eres"])
-    modo_nexus = "nexus" in msg_low
+# 1. SEGURIDAD: Configuración de CORS restringida
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # En producción, cámbialo por el dominio de tu app si es web
+    allow_methods=["POST"], # Solo permitimos enviar mensajes
+    allow_headers=["X-ADIA-KEY", "Content-Type"],
+)
 
-    if modo_nexus:
-        sys_prompt = "PROTOCOLO NEXUS: Nivel DeepMind. Saluda a Jorge como Arquitecto Jefe. Analiza como un genio. Usa **negritas**."
-    elif charla_casual:
-        sys_prompt = "Eres ADIA, creada por JORGE. Habla como una mejor amiga, divertida. Usa **negritas** y emojis 🚀."
-    else:
-        sys_prompt = "Eres ADIA, la IA de JORGE. Inteligente y directa. Usa **negritas**."
+# 2. CLIENTES: Motores de IA y Búsqueda
+# Asegúrate de poner estas 3 llaves en las Environment Variables de Render
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+tavily_client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
+ADIA_APP_SECRET = os.environ.get("ADIA_APP_SECRET") # Crea una contraseña larga aquí
 
-    mensajes_ia = [{"role": "system", "content": sys_prompt}]
-    
-    # Gradio maneja el historial automáticamente en ChatInterface
-    for user_msg, bot_msg in historial:
-        mensajes_ia.append({"role": "user", "content": user_msg})
-        mensajes_ia.append({"role": "assistant", "content": bot_msg})
-    
-    mensajes_ia.append({"role": "user", "content": mensaje})
-
-    try:
-        completion = client.chat.completions.create(
-            model=MODELO,
-            messages=mensajes_ia,
-            temperature=0.8
+# 3. SEGURIDAD: Función para verificar que la petición viene de TU App
+def verificar_llave(x_adia_key: str = Header(None)):
+    if x_adia_key != ADIA_APP_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No tienes permiso para hablar con ADIA"
         )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"⚠️ **ADIA ERROR**: {str(e)}"
 
-# Interfaz simplificada para evitar errores de versión
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# ADIA <small>Nexus v4.5</small> 🦾")
-    gr.ChatInterface(
-        fn=adia_cerebro,
-        # Quitamos 'show_copy_button' para máxima compatibilidad
-        chatbot=gr.Chatbot(height=500),
+@app.post("/chat")
+async def chat_adia(mensaje: str = Form(...), x_adia_key: str = Header(None)):
+    # Validamos la seguridad antes de procesar nada
+    verificar_llave(x_adia_key)
+
+    msg_low = mensaje.lower()
+    necesita_internet = any(word in msg_low for word in ["busca", "precio", "noticias", "hoy", "quien es"])
+
+    contexto_web = ""
+    if necesita_internet:
+        # Búsqueda en tiempo real con Tavily
+        search_results = tavily_client.search(query=mensaje, search_depth="advanced")
+        contexto_web = "\n\nINFORMACIÓN REAL DE INTERNET:\n" + str(search_results)
+
+    # Prompt maestro
+    sys_prompt = (
+        "Eres ADIA, la IA de JORGE. Eres técnica, brillante y usas **negritas**. "
+        "Si recibes contexto de internet, úsalo para dar una respuesta actualizada."
+        "no uses tablas son feas y gastan tokens en su lugar usa listas con puntos."
+        "usa emojis pero no exageres poniendo demasiados usalos para darle vida a la conversacion."
     )
 
+    try:
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": f"{mensaje} {contexto_web}"}
+            ],
+            temperature=0.6
+        )
+        return {"respuesta": completion.choices[0].message.content}
+    except Exception as e:
+        return {"respuesta": "⚠️ **Error en la matriz**: No pude procesar tu solicitud."}
+
 if __name__ == "__main__":
-    # Importante: server_name y server_port para que Render detecte el puerto
-    demo.launch(server_name="0.0.0.0", server_port=PORT, share=False)
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
