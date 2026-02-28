@@ -1,4 +1,6 @@
-gradio
+fastapi
+uvicorn
 groq
 tavily-python
+python-multipart
 
