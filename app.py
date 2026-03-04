@@ -16,16 +16,19 @@ def adia_chat(message, history):
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # CORRECCIÓN PARA GRADIO 5: Procesar historial como diccionarios
-    for msg in history:
-        # Gradio ahora pasa el historial con formato de roles
-        messages.append({"role": msg['role'], "content": msg['content']})
+    # Compatibilidad para Gradio 4.x (donde history es una lista de listas [user, bot])
+    if history:
+        for chat_pair in history:
+            if len(chat_pair) == 2:
+                user_msg, ai_msg = chat_pair
+                messages.append({"role": "user", "content": user_msg})
+                messages.append({"role": "assistant", "content": ai_msg})
     
     search_context = ""
     try:
         search = tavily.search(query=message, search_depth="basic", max_results=1)
         if search and 'results' in search and len(search['results']) > 0:
-            # Acceso correcto al primer resultado de la lista
+            # CORRECCIÓN: Acceso al índice [0] de la lista de resultados
             search_context = f"\n\n[DATOS EXTERNOS]: {search['results'][0]['content']}"
     except Exception:
         search_context = ""
@@ -38,17 +41,16 @@ def adia_chat(message, history):
             messages=messages,
             temperature=0.8,
         )
-        # Acceso correcto al contenido de la respuesta en Groq
+        # Acceso correcto al contenido en Groq
         return completion.choices[0].message.content
     except Exception as e:
         return f"Error en el núcleo de ADIA: {str(e)}"
 
-# 3. Interfaz de Gradio (Simple y funcional)
+# 3. Interfaz de Gradio (Versión compatible)
 demo = gr.ChatInterface(
     fn=adia_chat, 
     title="ADIA",
-    description="asistente de inteligencia artificial",
-    type="messages" # Esto le dice a Gradio que use el nuevo formato de mensajes
+    description="asistente de inteligencia artificial"
 )
 
 if __name__ == "__main__":
