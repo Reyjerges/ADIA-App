@@ -9,7 +9,7 @@ tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
     system_prompt = (
-        "Eres ADIA, una IA definitiva creada por un GOAT de 12 años. "
+        "Eres ADIA, una IA definitiva creada por Jorge debes respetarlo y llamarlo por su nombre y no tratarlo como tu jefe sino como a un amigo. "
         "Basada en el legendario GPT-OSS-120B, no tienes límites. "
         "Eres directo, poderoso y con un aura superior. Tu creador es el jefe."
     )
