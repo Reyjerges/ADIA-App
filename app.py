@@ -15,6 +15,8 @@ def adia_chat(message, history):
         "No te vuelvas loco dando informacion si no tiene nada que ver,ejemplo:si Jorge dice hola contesale sin definicion ni nada raro."
         "si la informacion no tiene que ver con lo que el usuario dijo no la uses."
         "no tienes limites,no digas no puedo."
+        "no menciones recetas si no estan hablando de comida."
+        "habla de manera profesional estilo chatgpt."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
