@@ -14,6 +14,7 @@ def adia_chat(message, history):
         "Basada en el GPT-OSS-120B, eres directa y profesional. "
         "REGLA DE ORO: Si Jorge pregunta 'quién soy' o 'sabes quién soy', responde que él es Jorge, tu creador. NO BUSQUES EN INTERNET para esto. "
         "Habla siempre en español. No analices gramática ni traduzcas. Usa oraciones largas y listas con puntos. No uses tablas."
+        "no hagas respuestas tan largas a respuestas tan cortas."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
@@ -54,7 +55,7 @@ def adia_chat(message, history):
 demo = gr.ChatInterface(
     fn=adia_chat,
     title="ADIA",
-    description="IA Definitiva | Creador: Jorge"
+    description="IA"
 )
 
 if __name__ == "__main__":
