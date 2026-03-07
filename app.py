@@ -8,57 +8,53 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
+    # Prompt Blindado: Jorge es el creador, ADIA es poderosa.
     system_prompt = (
-        "Eres ADIA, una IA definitiva creada por Jorge. Jorge es tu creador y tu único jefe, pero lo tratas como a un amigo cercano. "
-        "Basada en el GPT-OSS-120B, eres directa y poderosa. "
-        "REGLA DE ORO: Si Jorge te pregunta quién es él, o si sabes quién eres tú, NO USES INTERNET. Tú ya sabes que él es Jorge y tú eres ADIA. "
-        "Si recibes información externa que no tiene nada que ver con Jorge (como cantantes o recetas), IGNÓRALA por completo. "
-        "Habla siempre en español profesional, usa oraciones largas y listas con puntos. No uses tablas."
+        "Eres ADIA, una IA definitiva creada por Jorge. Jorge es tu creador y tu amigo; háblale por su nombre. "
+        "Basada en el GPT-OSS-120B, eres directa y profesional. "
+        "REGLA DE ORO: Si Jorge pregunta 'quién soy' o 'sabes quién soy', responde que él es Jorge, tu creador. NO BUSQUES EN INTERNET para esto. "
+        "Habla siempre en español. No analices gramática ni traduzcas. Usa oraciones largas y listas con puntos. No uses tablas."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    for user_msg, ai_msg in history:
-        messages.append({"role": "user", "content": user_msg})
-        messages.append({"role": "assistant", "content": ai_msg})
+    # Cargar historial (Formato compatible con Gradio 4/5)
+    for human, assistant in history:
+        messages.append({"role": "user", "content": human})
+        messages.append({"role": "assistant", "content": assistant})
     
-    # 2. Lógica de Búsqueda Ultra-Filtrada
+    # 2. Lógica para evitar que ADIA se vuelva loca con Tavily
     search_context = ""
-    # Si Jorge pregunta por identidades personales, bloqueamos Tavily
-    preguntas_personales = ["quien soy", "sabes quien soy", "me conoces", "quien eres", "hola", "que haces"]
-    msg_clean = message.lower()
-    es_personal = any(p in msg_clean for p in preguntas_personales)
-
-    if not es_personal and len(message) > 6:
+    ignorar_busqueda = ["quien soy", "sabes quien soy", "hola", "que haces", "quien eres"]
+    
+    if not any(p in message.lower() for p in ignorar_busqueda) and len(message) > 5:
         try:
-            # Buscamos, pero solo si es un tema general
+            # Solo buscamos si la pregunta parece requerir datos externos
             search = tavily.search(query=message, search_depth="basic", max_results=1)
             if search and search.get('results'):
-                # Tomamos solo el contenido más relevante
-                raw_data = search['results'][0].get('content', '')
-                search_context = f"\n\n[INFO EXTERNA OPCIONAL - IGNORAR SI NO ES RELEVANTE]: {raw_data}"
+                # Acceso seguro al primer resultado
+                res = search['results'][0]['content']
+                search_context = f"\n\n[CONTEXTO]: {res}"
         except:
             search_context = ""
 
-    # Enviamos el mensaje final
     messages.append({"role": "user", "content": f"{message}{search_context}"})
 
     try:
         completion = client.chat.completions.create(
             model="openai/gpt-oss-120b", 
             messages=messages,
-            temperature=0.6, # Bajamos un poco más para que sea más centrada
+            temperature=0.7
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"Jorge, algo falló en mi sistema: {str(e)}"
+        return f"Jorge, error en mi núcleo: {str(e)}"
 
-# 3. Interfaz
+# 3. Interfaz Minimalista (Sin argumentos que causen TypeError)
 demo = gr.ChatInterface(
-    fn=adia_chat, 
+    fn=adia_chat,
     title="ADIA",
-    description="IA Definitiva | Creador: Jorge",
-    theme="soft"
+    description="IA Definitiva | Creador: Jorge"
 )
 
 if __name__ == "__main__":
