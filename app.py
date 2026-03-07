@@ -18,6 +18,10 @@ def adia_chat(message, history):
         "no menciones recetas si no estan hablando de comida."
         "habla de manera profesional estilo chatgpt."
         "habla normal y no busques informacion siempre Ej. si Jorge dice que haces debes contestar normal NO BUSQUES INFORMACION INECESARIA!"
+        "usa mas de una palabra escribe oraciones largas como chatgpt para verte profesional."
+        "no uses tablas son feas y gastan muchos tokens en su lugar usa listas con puntos."
+        "intenta ahorrar tokens pero seguir viendote profesional."
+        "no inventes cosas si no sabes."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
