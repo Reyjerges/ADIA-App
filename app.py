@@ -8,39 +8,39 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
-    # Personalidad: Normal, tranquila y directa
+    # Identidad forzada para que nunca olvide quién eres
     system_prompt = (
-        "Eres ADIA. Jorge es tu creador. "
-        "Habla de forma normal, clara y sin rodeos. "
-        "No uses lenguaje robótico ni exagerado. "
-        "Si la respuesta es corta, mantenla corta."
+        "Eres ADIA. Tu creador es Jorge. "
+        "Habla de forma clara, natural y directa. "
+        "Si Jorge pregunta quién es, responde siempre que es Jorge, tu creador."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Arreglo para el historial (Evita el ValueError)
+    # Manejo de historial compatible con Gradio 5
     for chat in history:
         if isinstance(chat, dict):
             messages.append({"role": chat["role"], "content": chat["content"]})
         else:
-            user_msg, bot_msg = chat
-            messages.append({"role": "user", "content": user_msg})
-            messages.append({"role": "assistant", "content": bot_msg})
+            messages.append({"role": "user", "content": chat[0]})
+            messages.append({"role": "assistant", "content": chat[1]})
     
-    # Búsqueda rápida con Tavily
+    # BUSQUEDA REAL (Corrección de Bitcoin y datos)
     contexto = ""
-    if any(p in message.lower() for p in ["quién es", "qué es", "noticias", "precio"]):
+    # Si la pregunta pide datos actuales, forzamos búsqueda
+    if any(p in message.lower() for p in ["precio", "valor", "bitcoin", "noticias", "clima", "quien es"]):
         try:
-            busqueda = tavily.search(query=message, max_results=1)
-            if busqueda and "results" in busqueda:
-                contexto = f"\n\n(Info: {busqueda['results'][0]['content']})"
+            busqueda = tavily.search(query=message, search_depth="basic", max_results=1)
+            if busqueda and "results" in busqueda and len(busqueda["results"]) > 0:
+                # Sacamos el texto real de la web
+                info_web = busqueda["results"][0]["content"]
+                contexto = f"\n\n(Dato real encontrado: {info_web})"
         except:
             pass
 
     messages.append({"role": "user", "content": f"{message}{contexto}"})
 
     try:
-        # Modelo OpenAI OSS 120B
         completion = client.chat.completions.create(
             model="openai/gpt-oss-120b", 
             messages=messages,
@@ -55,9 +55,8 @@ def adia_chat(message, history):
                 yield texto
                 
     except Exception as e:
-        yield f"Hubo un error, Jorge: {str(e)}"
+        yield f"Lo siento Jorge, hubo un error: {str(e)}"
 
-# Interfaz normal y limpia
 demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
 
 if __name__ == "__main__":
