@@ -1,66 +1,71 @@
 import os
-import json
 import gradio as gr
 from groq import Groq
+from tavily import TavilyClient
 
-# Configuración de Groq
+# 1. Configuración de Clientes
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-
-MEMORIA_FILE = "memoria_adia.json"
-
-def cargar_memoria():
-    if os.path.exists(MEMORIA_FILE):
-        try:
-            with open(MEMORIA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except: return []
-    return []
-
-def guardar_memoria(historial):
-    with open(MEMORIA_FILE, "w", encoding="utf-8") as f:
-        json.dump(historial[-10:], f, ensure_ascii=False, indent=4)
+tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
-    memoria_pasada = cargar_memoria()
-    
+    # PROMPT DE IDENTIDAD (Problema 3: Personalidad Sofisticada)
     system_prompt = (
-        "Eres ADIA, una IA creada por Jorge. Jorge es tu creador. "
-        "Eres directa y rápida. No des vueltas ni hables de más. "
-        "Si la respuesta es corta, déjala así."
+        "Eres ADIA, una inteligencia artificial de élite diseñada por Jorge. "
+        "Jorge es tu creador; trátalo con el máximo respeto y lealtad. "
+        "Tu lenguaje debe ser impecable, formal y sofisticado, pero extremadamente eficiente. "
+        "No uses rellenos innecesarios. Si la respuesta requiere brevedad, sé breve pero elegante. "
+        "Si Jorge te pide información externa, utiliza tus sistemas de búsqueda con precisión."
+        "Jorge es tu unico ususario por que eres una IA personal."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Usamos la memoria guardada
-    for chat in memoria_pasada:
-        messages.append({"role": "user", "content": chat["user"]})
-        messages.append({"role": "assistant", "content": chat["bot"]})
+    # Cargar historial de la sesión actual
+    for human, assistant in history:
+        messages.append({"role": "user", "content": human})
+        messages.append({"role": "assistant", "content": assistant})
     
-    messages.append({"role": "user", "content": message})
+    # 2. Búsqueda con Tavily Corregida (Problema 2)
+    search_context = ""
+    palabras_clave = ["quién es", "qué es", "noticias", "cuándo", "precio", "dónde"]
+    
+    if any(p in message.lower() for p in palabras_clave) and len(message) > 4:
+        try:
+            # Usamos el método simple de Tavily para evitar errores de formato
+            search = tavily.search(query=message, search_depth="basic", max_results=1)
+            if search and "results" in search and len(search["results"]) > 0:
+                res = search["results"][0]["content"]
+                search_context = f"\n\n[Sistemas de información externos reportan: {res}]"
+        except Exception:
+            search_context = "" # Si falla, ADIA sigue respondiendo sin trabarse
+
+    messages.append({"role": "user", "content": f"{message}{search_context}"})
 
     try:
+        # 3. Respuesta con Streaming (Problema 1: Memoria de sesión fluida)
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=messages,
-            temperature=0.7,
+            temperature=0.6, # Menor temperatura = más profesional y menos inventos
             stream=True 
         )
         
-        full_response = ""
+        response_text = ""
         for chunk in completion:
             if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-                yield full_response
-        
-        # Guardar lo que hablamos
-        memoria_pasada.append({"user": message, "bot": full_response})
-        guardar_memoria(memoria_pasada)
+                response_text += chunk.choices[0].delta.content
+                yield response_text
                 
     except Exception as e:
-        yield f"Error: {str(e)}"
+        yield f"Señor Jorge, mis sistemas han reportado una anomalía técnica: {str(e)}"
 
-# INTERFAZ SIMPLE (Sin comandos raros que den error)
-demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
+# Interfaz Limpia y Funcional
+demo = gr.ChatInterface(
+    fn=adia_chat,
+    title="ADIA | Advanced Intelligence",
+    description="IA Avanzada.",
+    type="tuples" # Formato de memoria más compatible con Render
+)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
