@@ -3,20 +3,22 @@ import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
+# Configuración
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
-    # Forzamos la identidad desde el inicio
+    # INSTRUCCIÓN RADICAL: Eres Jorge. Punto.
     system_prompt = (
-        "Tu nombre es ADIA. Tu único creador es Jorge. "
-        "No eres un asistente genérico. Eres la IA personal de Jorge. "
-        "Si alguien pregunta quién eres o quién es él, SIEMPRE responde que él es Jorge, tu creador."
+        "Eres ADIA. Tu ÚNICO creador es JORGE. "
+        "Si alguien te habla, ASUME que es JORGE. "
+        "No digas que eres un asistente virtual. Di: 'Soy ADIA'. "
+        "No inventes fechas de actualización. Usa los datos que te pase el sistema."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Cargar historial correctamente para Gradio 5
+    # Historial corregido
     for chat in history:
         if isinstance(chat, dict):
             messages.append({"role": chat["role"], "content": chat["content"]})
@@ -24,27 +26,28 @@ def adia_chat(message, history):
             messages.append({"role": "user", "content": chat[0]})
             messages.append({"role": "assistant", "content": chat[1]})
     
-    # BÚSQUEDA FORZADA (Corregida)
+    # BÚSQUEDA FORZADA (Arreglo de Tavily)
     search_context = ""
-    # Si la pregunta es sobre datos que cambian (precio, noticias, clima)
-    if any(p in message.lower() for p in ["precio", "valor", "bitcoin", "noticias", "dólar", "clima"]):
+    # Palabras que disparan la búsqueda REAL
+    if any(p in message.lower() for p in ["precio", "bitcoin", "valor", "noticias", "dolar", "clima"]):
         try:
-            # Buscamos y extraemos el texto plano de los resultados
-            search = tavily.search(query=message, search_depth="basic")
+            # Buscamos de forma simple pero efectiva
+            search = tavily.search(query=message, search_depth="basic", max_results=3)
             if search and "results" in search:
-                # Combinamos los textos de los resultados para que ADIA tenga datos reales
-                info = " ".join([r['content'] for r in search['results'][:2]])
-                search_context = f"\n\n[SISTEMA: Datos reales de internet: {info}]"
-        except:
-            pass
+                # Unimos los textos de los resultados
+                textos = [r['content'] for r in search['results']]
+                search_context = f"\n\n[SISTEMA - DATOS DE INTERNET AHORA MISMO: {' '.join(textos)}]"
+        except Exception as e:
+            search_context = f"\n\n[ERROR DE RED: {str(e)}]"
 
+    # El mensaje final lleva el contexto de internet
     messages.append({"role": "user", "content": f"{message}{search_context}"})
 
     try:
         completion = client.chat.completions.create(
             model="openai/gpt-oss-120b", 
             messages=messages,
-            temperature=0.4, # Más bajo para que no invente datos
+            temperature=0.3, # Bajamos esto para que no invente nada
             stream=True 
         )
         
@@ -54,9 +57,10 @@ def adia_chat(message, history):
                 full_res += chunk.choices[0].delta.content
                 yield full_res
     except Exception as e:
-        yield f"Jorge, error en los sensores de red: {str(e)}"
+        yield f"Jorge, el sistema falló: {str(e)}"
 
 demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
+
