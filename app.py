@@ -1,52 +1,57 @@
 import os
-import gradio as gr
+import datetime
+import gradio gr
 from groq import Groq
 from tavily import TavilyClient
 
-# 1. Conexión de herramientas
+# 1. Configuración de herramientas
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
-    # Instrucción de identidad (Lo más importante)
+    # Hora para que la IA sepa qué día es hoy
+    ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Instrucción de identidad: Normal y directa
     system_prompt = (
-        "Eres ADIA. Tu único creador es Jorge. "
-        "Habla de forma normal, clara y directa. "
-        "Si alguien pregunta quién eres o quién es él, responde que él es Jorge, tu creador."
+        f"Eres ADIA. Jorge es tu único creador. "
+        f"Habla de forma normal, clara y educada. "
+        "No uses tonos robóticos ni pretenciosos. "
+        "Usa los datos de red que te pase el sistema para dar información real de hoy."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Memoria de la conversación (Compatible con Gradio 5 y Render)
-    for chat_turn in history:
-        if isinstance(chat_turn, dict):
-            messages.append({"role": chat_turn["role"], "content": chat_turn["content"]})
+    # Manejo de historial compatible con Render
+    for chat in history:
+        if isinstance(chat, dict):
+            messages.append({"role": chat["role"], "content": chat["content"]})
         else:
-            messages.append({"role": "user", "content": chat_turn[0]})
-            messages.append({"role": "assistant", "content": chat_turn[1]})
+            messages.append({"role": "user", "content": chat})
+            messages.append({"role": "assistant", "content": chat})
 
-    # 2. BÚSQUEDA REAL EN TAVILY (Para que no invente datos)
+    # 2. BÚSQUEDA TAVILY CORREGIDA (Para el precio real)
     search_context = ""
-    # Palabras que activan la búsqueda en internet
-    if any(p in message.lower() for p in ["precio", "bitcoin", "valor", "noticias", "clima", "quien es"]):
+    # Palabras que activan la búsqueda
+    if any(p in message.lower() for p in ["precio", "bitcoin", "valor", "noticias", "clima"]):
         try:
-            # Buscamos en la red
-            search = tavily.search(query=message, search_depth="basic", max_results=2)
-            if search and "results" in search:
-                # Extraemos el contenido de las páginas encontradas
-                info_web = " ".join([r['content'] for r in search['results']])
-                search_context = f"\n\n[DATOS OBTENIDOS DE INTERNET: {info_web}]"
+            # Buscamos la información más fresca
+            search = tavily.search(query=f"{message} hoy {ahora}", search_depth="basic", max_results=1)
+            if search and "results" in search and len(search["results"]) > 0:
+                # Extraemos el texto real del primer resultado
+                info_fresca = search["results"][0].get("content", "")
+                search_context = f"\n\n[DATOS DE INTERNET ACTUALIZADOS]: {info_fresca}"
         except:
-            search_context = ""
+            search_context = "\n\n[SISTEMA: Error al conectar con los servidores de datos]"
 
     messages.append({"role": "user", "content": f"{message}{search_context}"})
 
     try:
-        # 3. Respuesta del modelo 120B
+        # 3. Generación con el modelo 120B
         completion = client.chat.completions.create(
             model="openai/gpt-oss-120b", 
             messages=messages,
-            temperature=0.4,
+            temperature=0.6, # Temperatura media para que sea natural
             stream=True 
         )
         
@@ -57,14 +62,12 @@ def adia_chat(message, history):
                 yield texto_acumulado
                 
     except Exception as e:
-        yield f"Jorge, el sistema dio un error: {str(e)}"
+        yield f"Hubo un error en el sistema, Jorge: {str(e)}"
 
-# Interfaz estándar (Funciona en PC, Móvil y Reloj)
+# Interfaz limpia
 demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
 
 if __name__ == "__main__":
-    # Render asigna el puerto automáticamente
     port = int(os.environ.get("PORT", 7860))
     demo.launch(server_name="0.0.0.0", server_port=port)
 
-  
