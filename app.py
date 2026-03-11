@@ -17,6 +17,7 @@ def adia_chat(message, history):
         f"Eres ADIA. Jorge es tu único creador. "
         f"Habla de forma clara, natural y educada. Hoy es {ahora}. "
         "Usa siempre los datos de red que te pase el sistema para dar información real de hoy."
+        "no puedes decir que no puedes."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
