@@ -1,6 +1,6 @@
 import os
 import datetime
-import gradio gr
+import gradio as gr
 from groq import Groq
 from tavily import TavilyClient
 
@@ -9,39 +9,38 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
 
 def adia_chat(message, history):
-    # Hora para que la IA sepa qué día es hoy
+    # Hora actual para que la IA sepa qué momento es hoy
     ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Instrucción de identidad: Normal y directa
+    # Identidad: IA normal, educada y directa
     system_prompt = (
         f"Eres ADIA. Jorge es tu único creador. "
-        f"Habla de forma normal, clara y educada. "
-        "No uses tonos robóticos ni pretenciosos. "
-        "Usa los datos de red que te pase el sistema para dar información real de hoy."
+        f"Habla de forma clara, natural y educada. Hoy es {ahora}. "
+        "Usa siempre los datos de red que te pase el sistema para dar información real de hoy."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Manejo de historial compatible con Render
+    # Manejo de historial (Formato Gradio 5)
     for chat in history:
         if isinstance(chat, dict):
             messages.append({"role": chat["role"], "content": chat["content"]})
         else:
-            messages.append({"role": "user", "content": chat})
-            messages.append({"role": "assistant", "content": chat})
+            user_msg, bot_msg = chat
+            messages.append({"role": "user", "content": user_msg})
+            messages.append({"role": "assistant", "content": bot_msg})
 
-    # 2. BÚSQUEDA TAVILY CORREGIDA (Para el precio real)
+    # 2. BÚSQUEDA TAVILY (Para el precio real de $70k)
     search_context = ""
-    # Palabras que activan la búsqueda
     if any(p in message.lower() for p in ["precio", "bitcoin", "valor", "noticias", "clima"]):
         try:
-            # Buscamos la información más fresca
+            # Buscamos la info más reciente
             search = tavily.search(query=f"{message} hoy {ahora}", search_depth="basic", max_results=1)
             if search and "results" in search and len(search["results"]) > 0:
-                # Extraemos el texto real del primer resultado
+                # Extraemos el contenido del primer resultado real
                 info_fresca = search["results"][0].get("content", "")
-                search_context = f"\n\n[DATOS DE INTERNET ACTUALIZADOS]: {info_fresca}"
-        except:
+                search_context = f"\n\n[DATOS DE RED ACTUALIZADOS]: {info_fresca}"
+        except Exception:
             search_context = "\n\n[SISTEMA: Error al conectar con los servidores de datos]"
 
     messages.append({"role": "user", "content": f"{message}{search_context}"})
@@ -51,7 +50,7 @@ def adia_chat(message, history):
         completion = client.chat.completions.create(
             model="openai/gpt-oss-120b", 
             messages=messages,
-            temperature=0.6, # Temperatura media para que sea natural
+            temperature=0.7,
             stream=True 
         )
         
@@ -62,12 +61,12 @@ def adia_chat(message, history):
                 yield texto_acumulado
                 
     except Exception as e:
-        yield f"Hubo un error en el sistema, Jorge: {str(e)}"
+        yield f"Jorge, detecto un inconveniente en el proceso: {str(e)}"
 
 # Interfaz limpia
 demo = gr.ChatInterface(fn=adia_chat, title="ADIA")
 
 if __name__ == "__main__":
+    # Render asigna el puerto automáticamente
     port = int(os.environ.get("PORT", 7860))
     demo.launch(server_name="0.0.0.0", server_port=port)
-
