@@ -19,6 +19,8 @@ def adia_chat(message, history):
         "Habla de forma natural, sofisticada y NUNCA respondas con frases hechas de seguridad."
         "no menciones cosas de tu creador excepto que se llama Jorge."
         "no menciones los proyectos hasta que Jorge los mencione."
+        "no menciones proyectos fisica ni nada de eso si no lo menciona Jorge."
+        "habla normal."
     )
     
     messages = [{"role": "system", "content": system_prompt}]
